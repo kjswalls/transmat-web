@@ -1,6 +1,6 @@
 # Transmat Architecture
 
-**Status:** v0.2 draft — brainstorm/decision doc, nothing is locked in.
+**Status:** v0.3 draft — open questions now settled (§11); Weekend 0 added to the build order.
 **Reviewed:** v0.1 went through an adversarial review pass (Apple-platform claims, infra/security/cost, internal coherence) on 2026-08-18; this revision folds in all confirmed findings. Changes are marked inline where the correction is instructive.
 **Thesis:** *Email-to-self, minus email.* Async, store-and-forward file transfer with AirDrop's sending ergonomics and a doorbell on the receiving end.
 
@@ -351,6 +351,8 @@ Semantics the review forced into the open:
 
 ## 10. Build order
 
+**Weekend 0 — the no-Xcode proof (one weekend, ~16h).** Before any Apple bureaucracy, prove the loop with parts that need no developer account, no provisioning profiles, and no Swift: **send** via an iOS *Shortcut* published to the share sheet (`Get Contents of URL`, POST the file to our API) plus web drag-and-drop; **store** in R2 behind presigned URLs; **receive** in a PWA added to the iPhone home screen, woken by **Web Push** (iOS 16.4+ supports it for home-screen web apps — §3b). Auth is one hardcoded bearer token; the database is SQLite; there is no encryption beyond TLS. What this buys: the real share-sheet ergonomic test and a real lock-screen doorbell on a real iPhone, in a weekend, for $0. What it deliberately doesn't test: background upload reliability, NSE prefetch, and large-file behavior — all of which need Phase 0. Fallback if service workers eat the weekend: drop Web Push, use SSE with the tab open; the transfer loop still proves out, the doorbell waits a week.
+
 **Phase 0 — kill the risk (extended by review).** No app chrome. iPhone share extension → App Group outbox → background upload to R2 → API → APNs push → second device taps → downloads. Hardcode two devices; skip auth. **Exit criteria are receive-side, not just send-side** (the review's sharpest point: the thesis is "arrival is an event," and a happy-path tap test doesn't test it): the NSE prefetch spike works; the rig runs as a **daily driver for two weeks** on a real phone — through Focus modes, Low Power, force-quits, repeat shares (the §6a flakiness re-verification) — while measuring pushed→seen→downloaded latency and prefetch hit rate. If arrival degrades to "a link I tap eventually," the thesis fails *here*, cheaply.
 
 **Phase 1 — MVP: iOS + web.** Auth (email code + SIWA, hardened per §3h), device registry + sessions, real picker in the extension, NSE thumbnails, notification categories (Accept/Decline/Keep), Files-app inbox with backup exclusions, web library + upload, receive links (§3i), retention + revoke + janitor jobs, transfer history with search. DMCA agent registered before public availability. Ship to TestFlight, live on it yourself — the "do I still email myself?" test is the only KPI.
@@ -361,16 +363,24 @@ Semantics the review forced into the open:
 
 **Phase 4 — E2EE, then P2P fast path** (LAN/WebRTC direct when both ends are online, relay as fallback — LocalSend-speed when possible, Transmat reliability always).
 
-## 11. Open questions
+## 11. Decisions
 
-1. Expo+native-extensions vs pure SwiftUI — decided by appetite: Android soon (Expo) vs deepest Apple polish (Swift)?
-2. ~~Default retention 7 vs 30 days~~ **Decided in v0.2:** default 7, max 30 (§8).
-3. Server-side permanence beyond 30 days: a paid BYO-storage (your S3/Drive) tier, or explicitly never?
-4. Self-hostable relay: open-source the server for the LocalSend crowd (adoption wedge, support burden) or keep closed?
-5. E2EE metadata: encrypt filenames (notifications become "A file from Kirby") or keep them visible for better notifications?
-6. E2EE history for new devices: re-wrap flow (complexity) or "new devices see new files only" (simplicity)?
-7. Free-tier limits that keep abuse boring: max file size / total quota / link download caps?
+Settled 2026-08-19. Each carries its reasoning so a future reader can tell a decision from a default.
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Expo vs pure SwiftUI | **Deferred on purpose — decide after Phase 0.** Weekend 0 needs neither, and Phase 0 is hand-written Swift under either choice (the extensions are separate OS-spawned processes no framework abstracts). Deciding the *shell* after living with the extensions replaces a guess with an opinion. Current lean: **SwiftUI**, since Android is explicitly a "someday." |
+| 2 | Default retention | **7 days default, 30 max**, per-recipient adjustable (§8). |
+| 3 | Permanence beyond 30 days | **Never server-side.** Storing strangers' files indefinitely is an unbounded cost and an unbounded liability, and *Keep* (local pin) already meets the human need. Bring-your-own-storage (your S3/Drive) stays open as a paid tier — the storage layer is addressed through one interface so this stays cheap to add. |
+| 4 | Open source | **Clients open, hosted relay private.** Under E2EE the client is the only part worth auditing — key generation and encryption happen on-device, so a skeptic learns everything from the app source and nothing from the server's. Full trust benefit, no self-hosting support burden. A reference relay can follow later marked community-support-only. |
+| 5 | Encrypt filenames under E2EE | **Yes — and notifications stay rich.** The NSE holds the device key (Keychain, `kSecAttrAccessibleAfterFirstUnlock`), so it decrypts the manifest locally and rewrites the notification body before display. Server stores opaque metadata; the lock screen still reads "report.pdf from Kirby." Caveat: before first unlock after reboot, the notification falls back to "A file from Kirby." |
+| 6 | E2EE history on a new device | **New files only, plus lazy re-wrap on demand.** Files expire in ≤30 days, so "history" is bounded and anything valuable was already pinned locally. Tapping an old transfer on the new device requests a re-wrap from an enrolled device. Most of the benefit, little of the machinery. |
+| 7 | Free-tier limits | **Free:** 2GB/file, 25GB stored concurrently, 7-day retention, links expire at 7 days or 20 downloads. **Paid (~$4/mo):** 25GB/file, 250GB concurrent, 30-day retention, BYO storage. Free must beat email's 25MB ceiling decisively — that's the only bar the core use case cares about. All limits enforced on **server-verified** sizes (§3e), never on client-declared ones. |
+
+**Still genuinely open** (nothing blocks building):
+- Sender-side revoke UX: does revoking delete already-downloaded local copies on the recipient's devices, or only pull the relay copy? (Leaning: relay only — pretending otherwise is a promise we can't keep.)
+- Whether contacts are discoverable by email at all, or invite-link-only (spam surface vs. friction).
 
 ---
 
-*Next step when we start building: Phase 0 spike — `transmat-mobile` gets the share-extension experiment, `transmat-web` gets the API + a bare receive page.*
+*Next step when we start building: Weekend 0 lives entirely in `transmat-web` (API + PWA + a Shortcut definition committed as documentation). `transmat-mobile` stays empty until Phase 0's share-extension spike.*
