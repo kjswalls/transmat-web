@@ -109,35 +109,44 @@ And the nice consequence we found while deciding whether to encrypt filenames: t
 
 ## Part 3 — What could we build in a weekend?
 
-The instinct is "the Phase 0 spike." That's a trap: an Apple Developer account, provisioning profiles, App Group entitlements, APNs keys, a share extension target, and background `URLSession` is not a weekend for someone new to iOS — it's a weekend of Xcode error messages with no working demo at the end.
+The instinct is "build the whole iOS spike." That's a trap: an Apple Developer account, provisioning profiles, App Group entitlements, push keys, a share extension **and** background uploads is not a weekend — it's a weekend of Xcode errors with no working demo.
 
-So invert it. **Ask what proves the magic with the least platform bureaucracy** — and it turns out you can get the real send ergonomics *and* a real iPhone lock-screen doorbell with **no Xcode, no Swift, and no $99 developer account.**
+But the opposite trap is real too. The first draft of this plan dodged Xcode entirely by making the iPhone receive notifications through a home-screen web app. That was wrong, for a reason worth writing down: **iOS PWA push is the one delivery path we would never actually ship.** It only works if you install to the home screen, delivery is measurably less reliable than native, iOS evicts the app's data if you don't open it for a while, and in the EU Apple removed home-screen web apps entirely — those users get a Safari tab with no push at all. Testing "does the doorbell feel magical?" on that transport answers the wrong question.
 
-### Weekend 0 — the no-Xcode proof
+So the right split isn't *native vs. not*. It's **which half of iOS is hard.**
 
-| Piece | Weekend version | Why it works |
+> The hard, risky part of iOS is **sending** — share extensions, memory limits, background uploads that survive the sheet closing. The **receiving** side is much simpler: register for push, get a token, download a file when tapped.
+
+Weekend 0 goes native on the half that's easy and fakes the half that's hard.
+
+### Weekend 0 — the doorbell proof
+
+| Piece | Weekend version | Why |
 |---|---|---|
-| **Send from iPhone** | An **iOS Shortcut** with "Show in Share Sheet" on, running `Get Contents of URL` (POST, file as body) | Shortcuts can add themselves to the system share sheet. You get a real Transmat entry in the real share sheet, for free, today. |
-| **Send from laptop** | Web page with drag & drop | Trivial |
-| **Store** | R2 with presigned PUT | Same as the real design — worth doing properly, it's an afternoon |
-| **Receive** | PWA added to the iPhone **home screen** + Web Push | iOS 16.4+ supports Web Push for home-screen web apps. A genuine lock-screen notification, no native app. |
-| **Auth** | One hardcoded bearer token in a header | It's your phone and your laptop |
-| **Database** | SQLite file | Postgres can wait |
-| **Encryption** | TLS only | E2EE is Phase 4 |
+| **Receive** | A minimal SwiftUI app: ask permission, register for push, POST the device token, tap notification → download → save | This is the thesis. Real APNs, real lock screen, real notification actions. ~200 lines. |
+| **Send from iPhone** | An **iOS Shortcut** with "Show in Share Sheet" on, POSTing the file to your API | Real share-sheet ergonomics, zero Swift, zero risk |
+| **Send from laptop** | `curl` | A web upload page is nice, but it isn't what you're testing |
+| **Server** | Hono + SQLite + `apns2` (token auth with a `.p8` key) | The push sender is genuinely ~20 lines once the key exists |
+| **Storage** | File POSTed straight to the server, which forwards to R2 | Presigned direct-to-R2 is the real design and the wrong weekend |
+| **Accounts** | One hardcoded password in a header | It's your phone and your laptop |
 
 **A rough two days:**
 
-- **Sat morning** — Hono server, SQLite, R2 bucket, `POST /transfers` + `GET /transfers/:id` behind a bearer token.
-- **Sat afternoon** — the web app: upload, list, download. Deploy to Fly or Railway so you have a real HTTPS URL (needed for both push and PWA install).
-- **Sun morning** — Web Push: generate VAPID keys, write the service worker, subscribe from the phone, fire a notification on new transfer. *Budget the most time here* — service workers are the classic weekend-eater.
-- **Sun afternoon** — build the Shortcut, put it on the share sheet, and make tapping the notification land directly on the file. Then send yourself things all evening.
+- **Sat AM** — server, SQLite, R2 bucket, create-a-transfer and fetch-a-transfer behind one password.
+- **Sat PM** — the Apple Developer portal: App ID with push capability, then an **APNs auth key** (a `.p8` file you download once — note the Key ID and Team ID). Wire up `apns2` and prove a push lands on your phone from a single curl. *Stop here on Saturday and you've already de-risked the whole weekend.*
+- **Sun AM** — the SwiftUI app: notification permission, token registration, tap-to-download, a list of what's arrived.
+- **Sun PM** — the Shortcut on the share sheet, notification action buttons (long-press → Accept / Decline), then send yourself things all evening.
 
-**What this genuinely tests:** whether the loop feels magical. Whether a share-sheet send is actually faster than emailing yourself. Whether a doorbell on the lock screen changes how the thing feels versus checking an inbox. That's the thesis, and you'd have an answer by Sunday night.
+**Budget your risk against the Apple Developer portal, not the code.** Getting App ID, capability, key, and provisioning to agree is the classic first-timer time-sink. Two things that help: iterate on how the notification *looks* with `xcrun simctl push` against the simulator (no server round-trip needed), and do real end-to-end push testing on a physical device.
 
-**What it deliberately doesn't test:** background upload reliability (a Shortcut wants you to stay put while it uploads), NSE prefetch, big-file behavior, and multi-device fan-out. Those are exactly what Phase 0 exists for — you'd be buying the *product* answer cheap, and deferring the *platform* answers.
+**Trim lines, in order, if Sunday gets tight:** drop the notification actions, then drop R2 and write files to a local disk, then drop the Shortcut and send only with curl. The irreducible core is **push lands → tap → file is on the phone.** Everything else is comfort.
 
-**If it goes sideways:** if service workers eat Sunday, drop Web Push and use SSE with the page open. The transfer loop still proves out; the doorbell waits a week.
+**Stretch goal if it all goes smoothly:** a share extension that uploads in the *foreground*, with a progress bar, while the share sheet stays open. About 100 lines, completely reliable, and it sidesteps the background-upload risk. It's the known fallback behaviour promoted to a deliberate first step — "share and walk away" can come later.
+
+**What this genuinely tests:** whether a share-sheet send actually beats emailing yourself, and whether a doorbell changes how the thing *feels* versus checking an inbox. That's the whole thesis, answered by Sunday night.
+
+**What it doesn't test:** background upload reliability, notification prefetch, big files, multi-device fan-out. Those need the real Phase 0 spike — so you're buying the *product* answer cheap and deferring the *platform* answers.
 
 ### Weekend 1, if the itch persists
 
-Swap the Shortcut for a real share extension, and Web Push for APNs. That's when you pay Apple $99 and meet the provisioning system. By then you'll have a working server to point it at, which makes the iOS part a much smaller mountain.
+Swap the Shortcut for a real share extension with background upload, and add the notification service extension so small files arrive already downloaded, with a thumbnail. That's the part the architecture doc spends its longest section on, and by then you'll have a working server and a working app to hang it off — which makes it a much smaller mountain.

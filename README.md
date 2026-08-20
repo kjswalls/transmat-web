@@ -7,4 +7,4 @@
 
 Repos: `transmat-web` (API + web app), [`transmat-mobile`](https://github.com/kjswalls/transmat-mobile) (iOS/Android client).
 
-Status: brainstorm / pre-code. Next step is **Weekend 0** — the no-Xcode proof, which lives entirely in this repo.
+Status: brainstorm / pre-code. Next step is **Weekend 0** — the doorbell proof: a minimal native iOS receive app on real APNs, sending via an iOS Shortcut, spanning both repos.

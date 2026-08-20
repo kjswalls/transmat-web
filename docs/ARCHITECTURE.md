@@ -1,6 +1,6 @@
 # Transmat Architecture
 
-**Status:** v0.3 draft — open questions now settled (§11); Weekend 0 added to the build order.
+**Status:** v0.4 draft — decisions settled (§11); Weekend 0 rescoped to a native-receive doorbell proof (PWA push cut).
 **Reviewed:** v0.1 went through an adversarial review pass (Apple-platform claims, infra/security/cost, internal coherence) on 2026-08-18; this revision folds in all confirmed findings. Changes are marked inline where the correction is instructive.
 **Thesis:** *Email-to-self, minus email.* Async, store-and-forward file transfer with AirDrop's sending ergonomics and a doorbell on the receiving end.
 
@@ -107,7 +107,7 @@ Web is the universal escape hatch (borrowed laptop, Linux friend, no-install rec
 
 Same-language bonus: React on web + React Native on mobile means shared TypeScript types for the API client, transfer states, and (later) crypto envelope format.
 
-**Web receive reality check** (⚠️ corrected from v0.1, which oversold Web Push): on iOS, Web Push only works for web apps **added to the Home Screen** — a Safari-tab visitor can never get a push. Desktop Web Push needs an explicit permission grant and a running browser. So the web story is honestly: SSE while the tab is open, "it's waiting for you on next visit" otherwise, with Web Push as an upgrade for installed-PWA/desktop users who grant it.
+**Web receive reality check** (⚠️ corrected from v0.1, which oversold Web Push): on iOS, Web Push only works for web apps **added to the Home Screen** — a Safari-tab visitor can never get a push. Desktop Web Push needs an explicit permission grant and a running browser. So the web story is honestly: SSE while the tab is open, "it's waiting for you on next visit" otherwise, with Web Push as an upgrade for installed-PWA/desktop users who grant it. Two further findings that demote PWA-push from "viable receive path" to "nice-to-have": delivery rates are measurably below native APNs, iOS evicts an unused PWA's cached data after a period of disuse, and — decisively — **Apple removed standalone home-screen PWA support in the EU under the DMA**, so EU users get a Safari tab with no push at all. A product whose core promise is "arrival is an event" cannot rest that promise on PWA push; native clients own the doorbell, and the web app is the escape hatch.
 
 ### 3c. Desktop
 
@@ -351,7 +351,24 @@ Semantics the review forced into the open:
 
 ## 10. Build order
 
-**Weekend 0 — the no-Xcode proof (one weekend, ~16h).** Before any Apple bureaucracy, prove the loop with parts that need no developer account, no provisioning profiles, and no Swift: **send** via an iOS *Shortcut* published to the share sheet (`Get Contents of URL`, POST the file to our API) plus web drag-and-drop; **store** in R2 behind presigned URLs; **receive** in a PWA added to the iPhone home screen, woken by **Web Push** (iOS 16.4+ supports it for home-screen web apps — §3b). Auth is one hardcoded bearer token; the database is SQLite; there is no encryption beyond TLS. What this buys: the real share-sheet ergonomic test and a real lock-screen doorbell on a real iPhone, in a weekend, for $0. What it deliberately doesn't test: background upload reliability, NSE prefetch, and large-file behavior — all of which need Phase 0. Fallback if service workers eat the weekend: drop Web Push, use SSE with the tab open; the transfer loop still proves out, the doorbell waits a week.
+**Weekend 0 — the doorbell proof (one weekend, ~16h).** Goal: answer *"does a file arriving feel like an event?"* on a real iPhone, with the smallest build that can honestly answer it. Since the Apple Developer account already exists, **the receive path is native from the start** — the PWA/Web Push route was cut deliberately (§3b: lower delivery rates, home-screen-install requirement, cache eviction, and no standalone PWA support at all in the EU; testing the doorbell on the one transport we'd never ship would answer the wrong question).
+
+| Piece | Weekend 0 build | Deliberately deferred |
+|---|---|---|
+| **Receive** | Minimal SwiftUI app: notification permission → register for APNs → POST device token → tap notification → download → save to Documents. Add `UNNotificationCategory` actions (Accept / Decline) — cheap, and a big part of how arrival *feels*. | NSE thumbnail prefetch, Files-app polish, Transfer Hub UI |
+| **Send** | An iOS **Shortcut** on the share sheet (`Get Contents of URL`, POST the file), plus `curl` from the laptop | Share extension, background upload — the documented-risky part (§6a), and not what this weekend is testing |
+| **Server** | Hono + SQLite + `apns2` (token-based `.p8`, JWT ES256 over HTTP/2). File **POSTed straight to the server**, which streams it to R2 | Presigned direct-to-R2, multipart, verification, quotas — real design, wrong weekend |
+| **Auth** | One hardcoded bearer token | Everything in §3h |
+
+**Rough two days:** Sat AM — server, SQLite, R2 bucket, `POST /transfers` + `GET /transfers/:id`. Sat PM — Apple Developer portal: App ID with push capability, APNs auth key (`.p8`, note Key ID + Team ID), then wire `apns2` and prove a push lands on the phone from a curl. Sun AM — the SwiftUI app: permission, token registration, notification tap → download. Sun PM — the Shortcut, notification actions, then send yourself things all evening.
+
+**Risk to budget:** the Apple Developer portal, not the code. Getting App ID / capability / key / provisioning aligned is the classic first-time time-sink. Iterate the notification's *appearance* with `xcrun simctl push` against the simulator (no server round-trip), and use a physical device for real end-to-end APNs.
+
+**Trim lines if Sunday gets tight,** in order: drop notification actions; drop R2 and store files on a local volume; drop the Shortcut and send only via curl. The irreducible core is *push lands → tap → file is on the phone.*
+
+**Stretch goal if it all goes smoothly:** a share extension that uploads in the foreground with a progress bar while the sheet stays open. That's ~100 lines, reliable, and sidesteps the background-upload risk entirely — it's the Tumblr fallback from §6a promoted to a first step.
+
+**Exit criteria:** two weeks of daily-driver use before Phase 0 starts. Does the doorbell change how it feels versus checking an inbox? That's the thesis, and this is the cheapest honest test of it.
 
 **Phase 0 — kill the risk (extended by review).** No app chrome. iPhone share extension → App Group outbox → background upload to R2 → API → APNs push → second device taps → downloads. Hardcode two devices; skip auth. **Exit criteria are receive-side, not just send-side** (the review's sharpest point: the thesis is "arrival is an event," and a happy-path tap test doesn't test it): the NSE prefetch spike works; the rig runs as a **daily driver for two weeks** on a real phone — through Focus modes, Low Power, force-quits, repeat shares (the §6a flakiness re-verification) — while measuring pushed→seen→downloaded latency and prefetch hit rate. If arrival degrades to "a link I tap eventually," the thesis fails *here*, cheaply.
 
@@ -383,4 +400,4 @@ Settled 2026-08-19. Each carries its reasoning so a future reader can tell a dec
 
 ---
 
-*Next step when we start building: Weekend 0 lives entirely in `transmat-web` (API + PWA + a Shortcut definition committed as documentation). `transmat-mobile` stays empty until Phase 0's share-extension spike.*
+*Next step when we start building: Weekend 0 spans both repos — `transmat-web` gets the API and the APNs sender, `transmat-mobile` gets the minimal SwiftUI receive app and the Shortcut definition committed as documentation.*
