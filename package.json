@@ -1,0 +1,12 @@
+{
+  "name": "transmat",
+  "private": true,
+  "type": "module",
+  "workspaces": ["server", "web", "cli"],
+  "scripts": {
+    "dev": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "test": "npm run test -w server",
+    "build": "npm run build -w web"
+  }
+}
