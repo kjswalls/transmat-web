@@ -1,0 +1,23 @@
+{
+  "name": "@transmat/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Transmat CLI — makes this machine a real device: send files to your phone, and catch what it sends back.",
+  "bin": {
+    "transmat": "./src/index.js"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "test:e2e": "bash test/e2e.sh",
+    "transmat": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ]
+}

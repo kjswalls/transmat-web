@@ -1,0 +1,26 @@
+{
+  "name": "transmat-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Transmat web client — command bar + stream.",
+  "scripts": {
+    "dev": "vite",
+    "dev:mock": "node scripts/dev.mjs",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "mock": "node mock/server.js",
+    "verify": "node scripts/verify.mjs",
+    "verify:real": "node scripts/verify-real.mjs",
+    "verify:hostile": "node scripts/verify-hostile.mjs",
+    "mock:hostile": "node mock/hostile.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}
