@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; font-family: "Instrument Sans", system-ui, "Helvetica Neue", sans-serif; }
+    a { color: #9C8CF5; } a:hover { color: #B6A9F8; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 1000px; height: 700px; background: #0E1116; display: flex; flex-direction: column; padding: 34px; box-sizing: border-box;">
+
+  <div style="display: flex; flex-direction: column; gap: 7px; margin-bottom: 22px;">
+    <div class="mono" style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #55C9A2;">Candidates</div>
+    <div style="font-size: 21px; font-weight: 600; color: #ECEFF4; letter-spacing: -0.01em;">Eight small things that would make it beloved</div>
+    <div style="font-size: 13.5px; color: #6E7888; max-width: 600px; line-height: 1.5; text-wrap: pretty;">Not a roadmap — a menu. Each one removes a step that exists today. Pick the ones worth their weight and the rest go in the drawer.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; flex-grow: 1;">
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="10" height="13" rx="1.8"></rect><path d="M7.75 3.5V2.75a1 1 0 011-1h2.5a1 1 0 011 1v.75"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">Clipboard catch</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">Hit the hotkey with something copied and it is already loaded. No file picker, ever.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">⌘⇧T then ↵</div>
+    </div>
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#55C9A2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10h13"></path><path d="M12 5.5L16.5 10 12 14.5"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">Lands in your clipboard</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">Text and images arrive already pasteable on the other device. The transfer disappears entirely.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">opt in per sender</div>
+    </div>
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"></rect><path d="M6.5 8.5h7M6.5 11.5h4"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">Screenshots, caught</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">Take a screenshot and it is waiting in the bar for the next thirty seconds. Then it forgets.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">never uploads on its own</div>
+    </div>
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h13M3.5 9h9M3.5 12.5h5"></path><path d="M13 13l2 2 3-3.5"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">Selection to note</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">Highlight text anywhere, hit the key, and it arrives as a note you can copy — not a file to open.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">no blob, no download</div>
+    </div>
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#55C9A2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v9.5"></path><path d="M6.5 9L10 12.5 13.5 9"></path><path d="M4 15.5h12"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">Drag it straight out</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">Grab the arriving file off the card and drop it into whatever asked for it. No Downloads folder detour.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">macOS</div>
+    </div>
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 10-1.2 5.2"></path><path d="M16.5 3.5V8H12"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">Again</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">Sent it to the wrong laptop, or need it in two places. One key re-sends the last thing somewhere else.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">no re-upload</div>
+    </div>
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#55C9A2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5l2.1 4.6 5 .6-3.7 3.4 1 4.9L10 13.6 5.6 16l1-4.9L2.9 7.7l5-.6z"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">It learns the usual</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">Ninety percent of sends go to the same place. That one is pre-selected, so most sends are two keys total.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">↵↵</div>
+    </div>
+
+    <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+      <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="6" height="6" rx="1"></rect><rect x="11.5" y="2.5" width="6" height="6" rx="1"></rect><rect x="2.5" y="11.5" width="6" height="6" rx="1"></rect><path d="M11.5 11.5h2.5v2.5M17.5 14v3.5H14"></path></svg>
+      <div style="font-size: 13.5px; color: #ECEFF4; font-weight: 600; line-height: 1.3;">For people with no app</div>
+      <div style="font-size: 12px; color: #A3ACBB; line-height: 1.5; flex-grow: 1; text-wrap: pretty;">A link or a code on screen. They point a camera, they get the file, it dies in an hour.</div>
+      <div class="mono" style="font-size: 10px; color: #6E7888; border-top: 1px solid #20262F; padding-top: 9px;">expires fastest of all</div>
+    </div>
+
+  </div>
+
+  <div style="display: flex; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #20262F;">
+    <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
+      <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #C98A72;">The rule these all obey</div>
+      <div style="font-size: 12.5px; color: #A3ACBB; line-height: 1.55; max-width: 780px; text-wrap: pretty;">Nothing leaves a device without the person doing something. Catching the clipboard and the last screenshot means having them <span style="color: #ECEFF4;">ready</span>, never having them <span style="color: #ECEFF4;">sent</span> — the moment that stops being true, this is spyware with a nice icon.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; font-family: "Instrument Sans", system-ui, "Helvetica Neue", sans-serif; }
+    a { color: #9C8CF5; } a:hover { color: #B6A9F8; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 880px; height: 620px; background: #0E1116; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 34px; box-sizing: border-box;">
+
+  <div style="display: flex; flex-direction: column; gap: 9px; align-items: center; margin-bottom: 20px;">
+    <div class="mono" style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #9C8CF5;">Direction C</div>
+    <div style="font-size: 22px; font-weight: 600; color: #ECEFF4; letter-spacing: -0.01em;">Stream</div>
+    <div style="font-size: 13.5px; color: #6E7888; max-width: 450px; text-align: center; line-height: 1.5; text-wrap: pretty;">The archive is the app. Sending is a line at the top; everything you have ever moved is one keystroke away underneath it.</div>
+  </div>
+
+  <div style="width: 640px; background: #171B22; border: 1px solid #2A303B; border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,0.55); overflow: hidden;">
+
+    <div style="display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-bottom: 1px solid #2A303B; background: #131820;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-grow: 1; background: #1F242D; border: 1px solid #2A303B; border-radius: 7px; padding: 8px 11px;">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15.5V4.5"></path><path d="M5.75 8.75L10 4.5l4.25 4.25"></path></svg>
+        <span style="font-size: 13px; color: #6E7888;">Send a file, link, or note…</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 7px; background: #232936; border: 1px solid #363E4B; border-radius: 7px; padding: 8px 10px;">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#ECEFF4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="9.5" rx="1.5"></rect><path d="M1.5 16.5h17"></path></svg>
+        <span style="font-size: 12.5px; color: #ECEFF4;">MacBook</span>
+        <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="#6E7888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8l4.5 4.5L14.5 8"></path></svg>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 5px; padding: 9px 13px; border-bottom: 1px solid #2A303B;">
+      <div class="mono" style="font-size: 11px; color: #ECEFF4; background: #2A303B; border-radius: 5px; padding: 4px 9px;">All</div>
+      <div class="mono" style="font-size: 11px; color: #6E7888; padding: 4px 9px;">Sent</div>
+      <div class="mono" style="font-size: 11px; color: #6E7888; padding: 4px 9px;">Received</div>
+      <div class="mono" style="font-size: 11px; color: #6E7888; padding: 4px 9px;">Links</div>
+      <div class="mono" style="font-size: 11px; color: #6E7888; padding: 4px 9px;">Expiring</div>
+      <div style="flex-grow: 1;"></div>
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#6E7888" stroke-width="1.6" stroke-linecap="round"><circle cx="8.75" cy="8.75" r="5.5"></circle><path d="M12.9 12.9l3.6 3.6"></path></svg>
+      <span class="mono" style="font-size: 10.5px; color: #6E7888;">⌘F</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column;">
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 0 13px; height: 46px; box-sizing: border-box; background: #1C2430; border-bottom: 1px solid #2A303B;">
+        <div style="width: 26px; height: 26px; border-radius: 5px; background: #232936; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#55C9A2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4.5v9"></path><path d="M6.5 10L10 13.5 13.5 10"></path></svg>
+        </div>
+        <div style="font-size: 13px; color: #ECEFF4; font-weight: 500; width: 168px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">keynote-final.mov</div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 5px;">
+          <div style="height: 3px; background: #2A303B; border-radius: 2px; overflow: hidden;"><div style="width: 62%; height: 100%; background: #55C9A2;"></div></div>
+        </div>
+        <div class="mono" style="font-size: 10.5px; color: #55C9A2; width: 78px; text-align: right;">arriving 62%</div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 0 13px; height: 46px; box-sizing: border-box; border-bottom: 1px solid #20262F;">
+        <div style="width: 26px; height: 26px; border-radius: 5px; background: #1F242D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6.5h11M4.5 10h11M4.5 13.5h7"></path></svg>
+        </div>
+        <div style="font-size: 13px; color: #ECEFF4; width: 168px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">wifi password for the flat</div>
+        <div class="mono" style="font-size: 11px; color: #6E7888; flex-grow: 1;">to iPhone</div>
+        <div class="mono" style="font-size: 10.5px; color: #6E7888; width: 78px; text-align: right;">4m ago</div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 0 13px; height: 46px; box-sizing: border-box; border-bottom: 1px solid #20262F;">
+        <div style="width: 26px; height: 26px; border-radius: 5px; background: #1F242D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="15" height="13" rx="2"></rect><circle cx="7" cy="8" r="1.4"></circle><path d="M2.5 13.5l4-3.5 3.5 3 3-2.5 4 3.5"></path></svg>
+        </div>
+        <div style="font-size: 13px; color: #ECEFF4; width: 168px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Screenshot 14.22.png</div>
+        <div class="mono" style="font-size: 11px; color: #6E7888; flex-grow: 1;">from Sam Okafor</div>
+        <div class="mono" style="font-size: 10.5px; color: #C98A72; width: 78px; text-align: right;">2d left</div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 0 13px; height: 46px; box-sizing: border-box; border-bottom: 1px solid #20262F;">
+        <div style="width: 26px; height: 26px; border-radius: 5px; background: #1F242D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 11.5a3 3 0 004.2 0l2.6-2.6a3 3 0 00-4.2-4.2l-.7.7"></path><path d="M11.5 8.5a3 3 0 00-4.2 0l-2.6 2.6a3 3 0 004.2 4.2l.7-.7"></path></svg>
+        </div>
+        <div style="font-size: 13px; color: #ECEFF4; width: 168px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">figma.com/file/tXm…</div>
+        <div class="mono" style="font-size: 11px; color: #6E7888; flex-grow: 1;">to All my devices</div>
+        <div class="mono" style="font-size: 10.5px; color: #6E7888; width: 78px; text-align: right;">yesterday</div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 11px; padding: 0 13px; height: 46px; box-sizing: border-box;">
+        <div style="width: 26px; height: 26px; border-radius: 5px; background: #1F242D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#6E7888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h6.5L15 6v11.5H5z"></path><path d="M11.5 2.5V6H15"></path></svg>
+        </div>
+        <div style="font-size: 13px; color: #6E7888; width: 168px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: line-through;">tax-return-2025.pdf</div>
+        <div class="mono" style="font-size: 11px; color: #6E7888; flex-grow: 1;">to MacBook Pro</div>
+        <div class="mono" style="font-size: 10.5px; color: #6E7888; width: 78px; text-align: right;">expired</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div style="display: flex; gap: 26px; margin-top: 22px;">
+    <div style="display: flex; flex-direction: column; gap: 4px; max-width: 280px;">
+      <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #55C9A2;">Why this</div>
+      <div style="font-size: 12.5px; color: #A3ACBB; line-height: 1.55; text-wrap: pretty;">Keeps the promise email actually delivers — a searchable record. One surface for sending, receiving and finding.</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px; max-width: 280px;">
+      <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #C98A72;">The tradeoff</div>
+      <div style="font-size: 12.5px; color: #A3ACBB; line-height: 1.55; text-wrap: pretty;">Busier at rest. Puts history in front of you when most of the time you just want to fling one thing.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

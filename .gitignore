@@ -1,0 +1,3 @@
+# Seeded design canvas — build output, re-seeded from design/*.dc.html
+design/*.html
+!design/*.dc.html

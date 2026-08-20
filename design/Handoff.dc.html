@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; font-family: "Instrument Sans", system-ui, "Helvetica Neue", sans-serif; }
+    a { color: #9C8CF5; } a:hover { color: #B6A9F8; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 900px; height: 640px; background: #0E1116; display: flex; flex-direction: column; padding: 34px 34px 30px; box-sizing: border-box;">
+
+  <div style="display: flex; flex-direction: column; gap: 7px; margin-bottom: 22px;">
+    <div class="mono" style="font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #9C8CF5;">iOS</div>
+    <div style="font-size: 21px; font-weight: 600; color: #ECEFF4; letter-spacing: -0.01em;">Share sheet and library</div>
+    <div style="font-size: 13.5px; color: #6E7888; max-width: 560px; line-height: 1.5; text-wrap: pretty;">The share sheet is where the product is actually used. It has one job — pick a destination — so it shows one screen and no chrome.</div>
+  </div>
+
+  <div style="display: flex; gap: 30px; flex-grow: 1;">
+
+    <div style="display: flex; flex-direction: column; gap: 11px;">
+      <div class="mono" style="font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: #6E7888;">Share sheet</div>
+
+      <div style="width: 340px; background: #171B22; border: 1px solid #2A303B; border-radius: 20px 20px 0 0; overflow: hidden; flex-grow: 1; display: flex; flex-direction: column;">
+
+        <div style="display: flex; justify-content: center; padding: 9px 0 4px;"><div style="width: 36px; height: 4px; border-radius: 2px; background: #363E4B;"></div></div>
+
+        <div style="display: flex; align-items: center; gap: 11px; padding: 10px 16px 14px; border-bottom: 1px solid #2A303B;">
+          <div style="width: 42px; height: 42px; border-radius: 8px; background: #232936; border: 1px solid #363E4B; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="15" height="13" rx="2"></rect><circle cx="7" cy="8" r="1.4"></circle><path d="M2.5 13.5l4-3.5 3.5 3 3-2.5 4 3.5"></path></svg>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+            <div style="font-size: 14px; color: #ECEFF4; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">IMG_4032.HEIC</div>
+            <div class="mono" style="font-size: 11px; color: #6E7888;">3.1 MB</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; padding: 6px 0;">
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: #6E7888; padding: 8px 16px 6px;">Send to</div>
+
+          <div style="display: flex; align-items: center; gap: 13px; padding: 0 16px; height: 56px; box-sizing: border-box; background: #232936;">
+            <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="#ECEFF4" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="9.5" rx="1.5"></rect><path d="M1.5 16.5h17"></path></svg>
+            <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+              <div style="font-size: 15px; color: #ECEFF4; font-weight: 500;">MacBook Pro</div>
+              <div class="mono" style="font-size: 10.5px; color: #55C9A2;">online · usual</div>
+            </div>
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5l4 4 8-9"></path></svg>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 13px; padding: 0 16px; height: 56px; box-sizing: border-box;">
+            <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="2.5" width="9" height="15" rx="2"></rect><path d="M8.75 15.25h2.5"></path></svg>
+            <div style="font-size: 15px; color: #ECEFF4; flex-grow: 1;">iPad Air</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 13px; padding: 0 16px; height: 56px; box-sizing: border-box;">
+            <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="#9C8CF5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.25"></circle><path d="M10 2.5v2.4M10 15.1v2.4M2.5 10h2.4M15.1 10h2.4M4.7 4.7l1.7 1.7M13.6 13.6l1.7 1.7M15.3 4.7l-1.7 1.7M6.4 13.6l-1.7 1.7"></path></svg>
+            <div style="font-size: 15px; color: #ECEFF4; flex-grow: 1;">All my devices</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 13px; padding: 0 16px; height: 56px; box-sizing: border-box;">
+            <div style="width: 21px; height: 21px; border-radius: 50%; background: #2F3A4D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><span class="mono" style="font-size: 9px; color: #A3ACBB;">SO</span></div>
+            <div style="font-size: 15px; color: #ECEFF4; flex-grow: 1;">Sam Okafor</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 13px; padding: 0 16px; height: 56px; box-sizing: border-box;">
+            <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 11.5a3 3 0 004.2 0l2.6-2.6a3 3 0 00-4.2-4.2l-.7.7"></path><path d="M11.5 8.5a3 3 0 00-4.2 0l-2.6 2.6a3 3 0 004.2 4.2l.7-.7"></path></svg>
+            <div style="font-size: 15px; color: #ECEFF4; flex-grow: 1;">Copy a link instead</div>
+          </div>
+        </div>
+
+        <div style="flex-grow: 1;"></div>
+
+        <div style="padding: 12px 16px 20px; border-top: 1px solid #2A303B; display: flex; align-items: center; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1;">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="#6E7888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.25"></circle><path d="M10 6v4.25l2.75 1.6"></path></svg>
+            <span class="mono" style="font-size: 11px; color: #A3ACBB;">7 days</span>
+          </div>
+          <div style="font-size: 15px; color: #0E1116; font-weight: 600; background: #9C8CF5; border-radius: 9px; padding: 0 26px; height: 46px; display: flex; align-items: center;">Send</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px; flex-grow: 1;">
+      <div class="mono" style="font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: #6E7888;">The app · everything that ever moved</div>
+
+      <div style="background: #171B22; border: 1px solid #2A303B; border-radius: 20px; overflow: hidden; flex-grow: 1; display: flex; flex-direction: column;">
+
+        <div style="padding: 18px 16px 12px; display: flex; flex-direction: column; gap: 13px;">
+          <div style="font-size: 24px; font-weight: 600; color: #ECEFF4; letter-spacing: -0.02em;">Transmat</div>
+          <div style="display: flex; align-items: center; gap: 9px; background: #1F242D; border: 1px solid #2A303B; border-radius: 9px; padding: 11px 12px;">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#6E7888" stroke-width="1.6" stroke-linecap="round"><circle cx="8.75" cy="8.75" r="5.5"></circle><path d="M12.9 12.9l3.6 3.6"></path></svg>
+            <span style="font-size: 14px; color: #6E7888;">Search everything</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <div class="mono" style="font-size: 11px; color: #0E1116; background: #9C8CF5; border-radius: 14px; padding: 6px 12px; font-weight: 500;">All</div>
+            <div class="mono" style="font-size: 11px; color: #A3ACBB; background: #1F242D; border-radius: 14px; padding: 6px 12px;">From Mac</div>
+            <div class="mono" style="font-size: 11px; color: #A3ACBB; background: #1F242D; border-radius: 14px; padding: 6px 12px;">Links</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; padding: 0 0 8px;">
+
+          <div style="display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 62px; box-sizing: border-box; border-top: 1px solid #20262F;">
+            <div style="width: 38px; height: 38px; border-radius: 7px; background: #1F242D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#55C9A2" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l4 4 7-8"></path></svg>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+              <div style="font-size: 14.5px; color: #ECEFF4; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">design-review.png</div>
+              <div class="mono" style="font-size: 11px; color: #6E7888;">from Sam · on this iPhone</div>
+            </div>
+            <div class="mono" style="font-size: 11px; color: #6E7888;">now</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 62px; box-sizing: border-box; border-top: 1px solid #20262F;">
+            <div style="width: 38px; height: 38px; border-radius: 7px; background: #1F242D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6.5h11M4.5 10h11M4.5 13.5h7"></path></svg>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+              <div style="font-size: 14.5px; color: #ECEFF4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">wifi password for the flat</div>
+              <div class="mono" style="font-size: 11px; color: #6E7888;">copied to clipboard</div>
+            </div>
+            <div class="mono" style="font-size: 11px; color: #6E7888;">4m</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 62px; box-sizing: border-box; border-top: 1px solid #20262F;">
+            <div style="width: 38px; height: 38px; border-radius: 7px; background: #1F242D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#A3ACBB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h6.5L15 6v11.5H5z"></path><path d="M11.5 2.5V6H15"></path></svg>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+              <div style="font-size: 14.5px; color: #ECEFF4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">invoice-aug.pdf</div>
+              <div class="mono" style="font-size: 11px; color: #C98A72;">2 days left</div>
+            </div>
+            <div class="mono" style="font-size: 11px; color: #6E7888;">Tue</div>
+          </div>
+
+        </div>
+        <div style="flex-grow: 1;"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
