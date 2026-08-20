@@ -1,12 +1,12 @@
 {
   "name": "transmat",
   "private": true,
-  "type": "module",
-  "workspaces": ["server", "web", "cli"],
+  "description": "Root task runner. Each component is standalone with its own node_modules.",
   "scripts": {
-    "dev": "npm run dev -w server",
-    "dev:web": "npm run dev -w web",
-    "test": "npm run test -w server",
-    "build": "npm run build -w web"
+    "setup": "cd server && npm install && cd ../web && npm install && cd ../cli && npm install",
+    "dev": "cd server && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "test": "cd server && npm test",
+    "cli": "cd cli && node src/index.js"
   }
 }
