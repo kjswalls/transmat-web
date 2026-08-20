@@ -62,7 +62,7 @@ sequenceDiagram
     API-->>APP: 302 → presigned R2 URL (5 min)
     APP->>R2: download via background URLSession
     R2-->>APP: bytes → Documents/Transmat/
-    APP->>API: POST /transfers/:id/ack
+    APP->>API: POST /v1/deliveries/:id/ack
     APP->>APP: local notification "report.pdf saved"
 ```
 
@@ -79,7 +79,7 @@ Every route takes `Authorization: Bearer <TRANSMAT_TOKEN>`.
 | `POST /transfers` | Send a file | `multipart/form-data`: `file`, plus `name`, `to`, `from` fields → `{transfer_id}` |
 | `GET /transfers` | Recent transfers | For the app's list view |
 | `GET /transfers/:id/blob` | Download | **302 redirect** to a 5-minute presigned R2 GET — `URLSession` follows it automatically |
-| `POST /transfers/:id/ack` | Mark received | Closes the funnel: created → pushed → downloaded → acked |
+| `POST /v1/deliveries/:id/ack` | Mark received | Keyed by **delivery_id**, not transfer_id — a transfer can have several deliveries. Closes the funnel: created → pushed → downloaded → acked |
 
 **Targeting.** `to` accepts a `device_id`, or `others` (every registered device except `from`), or `all`. Default `others`. `from` is the sender's `device_id` when known; curl can omit it.
 

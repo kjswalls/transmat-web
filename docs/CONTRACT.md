@@ -101,6 +101,20 @@ event: delivery.acked     data: {"transfer_id": "...", "delivery_id": "...", "de
 
 With `?device_id=X`, only events where X is a recipient or the sender.
 
+## Amendments accepted during the build
+
+The implementation needed these; they are supersets of the frozen contract, not changes to it. Recorded here so the docs match reality.
+
+1. **CORS** is enabled (reflected origin, no credentials, `Authorization` allowed, `Content-Disposition`/`Content-Range`/`Accept-Ranges`/`Location` exposed) on every route including the SSE stream and both blob hops. Without it a browser client on another port cannot call the API at all. Bearer auth is unchanged.
+2. **`GET /v1/events` also accepts `?access_token=`** as an auth fallback, because `EventSource` cannot set headers. The `Authorization` header still works and is preferred. (Our web client uses `fetch` + `ReadableStream`, so it sends the header.)
+3. **`PUBLIC_BASE_URL`** (default `http://localhost:$PORT`) — the `local` driver has to put an absolute URL in its 302 and nothing else in Env supplies one.
+4. **`internal` (500)** joins the error-code list, for genuine unhandled bugs.
+5. **`expires_in_days` outside 1–30 is clamped, not rejected** (non-numeric is still a 400). Friendlier to a Shortcut sending something odd.
+6. **`direction`** takes `in` | `out` | `both`; omitted means either side.
+7. **`POST /v1/transfers` returns 200**, not 201, for consistency with every other route.
+8. **`GET /blob/:key` supports HEAD and single-byte-range requests**, so an iOS background download can resume.
+9. **Revoked and expired transfers keep `blob_key`** after the bytes are deleted, so an already-issued signed URL answers 410 rather than a misleading 404.
+
 ## Env
 
 ```
