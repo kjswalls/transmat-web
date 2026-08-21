@@ -58,11 +58,21 @@ I also fixed two things I found in review: the transfer row was truncating the f
 |---|---|---|
 | **The whole iOS app** | No macOS, no Xcode, no Swift compiler here. ~3,000 lines never compiled. | Expect signature fixes. `transmat-mobile/NOTES.md §2` lists the ~10 specific Apple APIs that need checking — start there, it is a triage list, not a wall. |
 | **APNs against Apple** | Tested against a local HTTP/2 server (JWT signing, headers, payload, 410 token clearing all correct) but never against `api.push.apple.com`. | TLS, the real `/3/device` behaviour and topic/bundle-id correctness need your `.p8`. |
-| **The R2 storage driver** | No credentials. Written against the AWS SDK and validates config at boot; no call ever made to a bucket. | Only matters when you leave local storage. |
+| ~~**The R2 storage driver**~~ | **Now tested — and it was broken.** See below. | Nothing to do. |
 | **The 2 GB file cap** | Proven by mechanism with a lowered cap over a real socket (abort is genuinely mid-stream, no partial blob lands) — but nobody sent 2 GB. | Fine to trust; the mechanism is what matters. |
 | **Fonts in my screenshots** | This sandbox blocks `fonts.googleapis.com`, so screenshots show fallback faces, not Instrument Sans / IBM Plex Mono. | It will look better on your machine than in `web/screenshots/verified/`. |
 
 ---
+
+## Done while you were out
+
+**Found and fixed a real bug in the R2 driver.** It was listed as "unexercised" — so I exercised it, by running a local S3-compatible server (s3rver) and pointing the driver at it. Every upload failed with a 500: `Body: counted(body)` handed the AWS SDK a bare `AsyncGenerator`, which it does not accept. So the moment you set `STORAGE_DRIVER=r2`, storage would have been dead. Fixed with `Readable.from(...)`, which keeps the streaming byte-cap intact. Verified: 3 MB single-part and 20 MB real multipart both round-trip byte-identical through presigned GETs, and revoke deletes the object.
+
+Nothing caught this because every other test ran the `local` driver — `r2` had never executed once. There is now `server/test/r2.test.js` covering the driver against a local S3 (no Cloudflare credentials needed); it skips cleanly if `s3rver` isn't installed. **225 tests pass.**
+
+**Syntax-checked every Swift file.** No compiler here, but tree-sitter's Swift grammar parses all nine files in `Sources/` **without a single syntax error** — the unbalanced-brace and malformed-declaration class is ruled out before you open Xcode. One false positive is documented in `NOTES.md §8` so you don't chase it: the grammar can't handle `try? await` inside an optional-binding condition, which is valid Swift. This is not type checking — the ten unverified Apple signatures in `NOTES.md §2` are still open.
+
+**Added deploy scaffolding** — `server/Dockerfile`, `server/fly.toml`, and [`docs/DEPLOY.md`](DEPLOY.md). The headline: **you don't need to deploy anything on Saturday.** `cloudflared tunnel --url http://localhost:8787` points a public HTTPS URL at your laptop, which is all APNs needs. Fly is there for when it becomes a daily driver. The image itself is unbuilt (no Docker daemon here) and labelled as such, but the lines that usually break — the production install and the production boot — are tested.
 
 ## Your first hour: the Apple portal
 
