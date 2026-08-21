@@ -21,9 +21,10 @@ No cloud credentials needed: storage defaults to a local driver, push prints to 
 
 | | |
 |---|---|
-| `server/` | Hono + node:sqlite API. 218 tests. Pluggable storage (local / R2) and push (console / APNs). |
+| `server/` | Hono + node:sqlite API. 237 tests. Pluggable storage (local / R2) and push (console / APNs). |
 | `web/` | ⌘K command bar for sending, live stream for browsing. |
 | `cli/` | `transmat send` / `watch` — makes a laptop a real device. |
-| [`transmat-mobile`](https://github.com/kjswalls/transmat-mobile) | SwiftUI receive app. **Uncompiled** — needs Xcode. |
+| [`transmat-mobile`](https://github.com/kjswalls/transmat-mobile) | SwiftUI receive app + share/notification extensions. **Uncompiled** — needs Xcode. |
+| `desktop/` | macOS menu bar Transfer Hub. **Uncompiled** — needs Xcode. Belongs in its own repo; see `desktop/README.md`. |
 
 Status: Weekend 0 server, web and CLI are working end to end. iOS is written and waiting on a compiler.

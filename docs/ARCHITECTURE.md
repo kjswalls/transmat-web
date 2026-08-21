@@ -1,6 +1,6 @@
 # Transmat Architecture
 
-**Status:** v0.4 draft — decisions settled (§11); Weekend 0 rescoped to a native-receive doorbell proof (PWA push cut).
+**Status:** v0.5 draft — Weekend 0 built; Weekend 1 in progress. §3e corrected: presigned uploads are a single PUT, not multipart, and content-length cannot be signed.
 **Reviewed:** v0.1 went through an adversarial review pass (Apple-platform claims, infra/security/cost, internal coherence) on 2026-08-18; this revision folds in all confirmed findings. Changes are marked inline where the correction is instructive.
 **Thesis:** *Email-to-self, minus email.* Async, store-and-forward file transfer with AirDrop's sending ergonomics and a doorbell on the receiving end.
 
@@ -59,9 +59,9 @@ sequenceDiagram
     participant P as APNs/FCM/WebPush
     participant D as Receiver device
 
-    S->>API: POST /transfers {name, size, recipients}
-    API->>S: transfer_id + presigned multipart part URLs<br/>(content-length signed per part)
-    S->>R2: PUT file parts (fixed part size, resumable)
+    S->>API: POST /transfers {mode:presigned, name, size, recipients}
+    API->>S: transfer_id + ONE presigned PUT URL
+    S->>R2: PUT the whole body (single request)
     S->>API: POST /transfers/:id/complete
     API->>R2: HeadObject — record actual stored size,<br/>enforce quota/max-size on it
     API->>P: push to each recipient's devices
@@ -148,9 +148,9 @@ Napkin math, honestly framed (⚠️ v0.1 called the R2 line alone "the cost mod
 
 - **Blobs are keyed by random `blob_id` (UUID), not content hash.** v0.1 proposed `blobs/{sha256}` for cross-user dedupe; the review killed it three ways: (1) the hash is client-declared and the bytes bypass the API, so a malicious client can claim hash H and upload garbage — every later sender of the real file dedupes onto the poisoned blob (R2/S3 cannot enforce whole-object SHA-256 across multipart parts); (2) any "hash already exists, skip upload" shortcut is a file-existence oracle and, worse, upload-by-hash (the Dropbox "Dropship" incident); (3) under v2 E2EE, identical plaintexts produce unique ciphertexts, so content addressing dies anyway. `sha256` survives as a nullable, *server-verified* integrity column. The send-to-3-devices case never needed content addressing — it's one blob referenced by three recipient rows.
 - **Presigned URLs are reusable bearer tokens for their whole TTL — "single-use" is not a thing in S3-compatible storage.** Mitigations: single-digit-minute TTLs, part URLs scoped to one upload-id, GET URLs issued only to an authorized, live recipient at request time, and awareness that a leaked URL is usable until expiry.
-- **Size enforcement:** sign `content-length` into each part URL, cap the number of part URLs at ⌈declared_size / part_size⌉, and on `/complete` verify with `HeadObject` — quotas, the max-file limit (start 2GB), and billing guards all run on the *actual* stored size, and blobs that exceed declared size get deleted.
-- **Multipart rules:** R2 requires all parts except the last to be the **same size, ≥ 5MiB** — pick one fixed part size up front (5–8MiB also fits extension memory limits) and keep it for the life of the upload.
-- **Abandoned uploads:** an R2 lifecycle rule aborts incomplete multipart uploads after ~3 days (they bill as storage until aborted!), and the janitor also aborts the stored upload-id of any transfer stuck in `uploading` past a deadline.
+- **Size enforcement:** ⚠️ *Corrected in v0.5.* v0.4 said to "sign `content-length` into each part URL". **You cannot** — S3 does not enforce a signed `Content-Length` on a presigned PUT, so the declared size is only a *claim*. Enforcement is therefore after the fact: `/complete` calls `HeadObject`/`stat`, compares against the declared size, and deletes anything that does not match. Quotas, the 2GB cap and billing guards all run on the **actual** stored size. The residual exposure — a client can burn storage up to the URL's TTL before we delete it — is bounded by the TTL and the janitor, and should be bounded by a per-user quota check *before* a URL is issued.
+- **Multipart is unavailable to the client that matters.** ⚠️ *Corrected in v0.5.* An iOS background `URLSession` hands the transfer to `nsurlsessiond` and the app stops existing, so nothing is around to orchestrate parts or send `CompleteMultipartUpload` — every part lands and the upload strands ([aws-sdk-ios#3173](https://github.com/aws-amplify/aws-sdk-ios/issues/3173)). Client uploads are therefore a **single presigned PUT**, which covers everything under S3's 5GB single-request ceiling. The server still uses `lib-storage`'s multipart internally when *it* streams a body to R2 (the web and CLI path), where it is orchestrating the upload itself and this problem does not arise. See CONTRACT.md "Presigned upload".
+- **Abandoned uploads:** the janitor cancels any transfer left in `uploading` past `UPLOAD_DEADLINE_MS` (6h) and deletes its object — orphaned bytes bill forever and are invisible to the expiry sweep, which only looks at `complete`. An R2 lifecycle rule to abort incomplete multipart uploads is still worth setting for the server-side streaming path.
 - **Blob lifetime is derived, never independently authoritative:** delete from R2 when no live recipient row references the blob (i.e. at max of referencing recipients' expiries — see §8 retention). Ref transitions take row locks, and deletion goes through a `deleting` tombstone state so a concurrent attach can't race a delete.
 
 ### 3f. Database

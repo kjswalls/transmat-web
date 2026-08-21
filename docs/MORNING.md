@@ -35,7 +35,7 @@ node src/index.js watch --dir ~/Downloads      # leave running
 
 Not agent claims — I ran these against a live server after the build:
 
-- **218 server tests pass** from a clean checkout (`rm -rf node_modules .data .env && npm install && npm test`).
+- **237 server tests pass** from a clean checkout (`rm -rf node_modules .data .env && npm install && npm test`).
 - **Byte-identical round trip** through the HTTP API: 300 KB file in, sha256 matched on the way out.
 - **Byte-identical round trip** through the CLI: laptop A → server → laptop B over live SSE, sha256 matched, file written 0600.
 - **Revoke** returns 410 afterwards and the blob is gone from disk (`blobs/` went 1 → 0).
@@ -68,7 +68,7 @@ I also fixed two things I found in review: the transfer row was truncating the f
 
 **Found and fixed a real bug in the R2 driver.** It was listed as "unexercised" — so I exercised it, by running a local S3-compatible server (s3rver) and pointing the driver at it. Every upload failed with a 500: `Body: counted(body)` handed the AWS SDK a bare `AsyncGenerator`, which it does not accept. So the moment you set `STORAGE_DRIVER=r2`, storage would have been dead. Fixed with `Readable.from(...)`, which keeps the streaming byte-cap intact. Verified: 3 MB single-part and 20 MB real multipart both round-trip byte-identical through presigned GETs, and revoke deletes the object.
 
-Nothing caught this because every other test ran the `local` driver — `r2` had never executed once. There is now `server/test/r2.test.js` covering the driver against a local S3 (no Cloudflare credentials needed); it skips cleanly if `s3rver` isn't installed. **225 tests pass.**
+Nothing caught this because every other test ran the `local` driver — `r2` had never executed once. There is now `server/test/r2.test.js` covering the driver against a local S3 (no Cloudflare credentials needed); it skips cleanly if `s3rver` isn't installed. **225 tests pass** (237 after the Weekend 1 additions).
 
 **Syntax-checked every Swift file.** No compiler here, but tree-sitter's Swift grammar parses all nine files in `Sources/` **without a single syntax error** — the unbalanced-brace and malformed-declaration class is ruled out before you open Xcode. One false positive is documented in `NOTES.md §8` so you don't chase it: the grammar can't handle `try? await` inside an optional-binding condition, which is valid Swift. This is not type checking — the ten unverified Apple signatures in `NOTES.md §2` are still open.
 
@@ -78,7 +78,7 @@ Nothing caught this because every other test ran the `local` driver — `r2` had
 
 ## Weekend 1 was started too
 
-**Server half — built and tested (237 tests).** Uploads can now go *straight to storage*: reserve → PUT to a signed URL → complete. Verified end to end on both drivers, including a 1.5 MB file that went to S3 without the server seeing a byte.
+**Server half — built and tested (237 tests).** Uploads can now go *straight to storage*: reserve → PUT to a signed URL → complete. Verified end to end on both drivers by hand, including a 1.5 MB file that went to S3 without the server seeing a byte — **but the automated tests cover the local driver only**, which is exactly the gap that let the earlier R2 bug through. An r2-backed presigned test is queued.
 
 The design decision behind it, which is not obvious: a background `URLSession` hands off to `nsurlsessiond` and **your process stops existing**, so multipart is out — every part uploads and `CompleteMultipartUpload` never fires ([aws-sdk-ios#3173](https://github.com/aws-amplify/aws-sdk-ios/issues/3173)). Hence a single PUT. And because a presigned URL cannot enforce `Content-Length`, the declared size is only a claim: `complete` stats what actually landed and deletes anything that does not match. Nothing is pushed or even listed until then.
 
@@ -131,7 +131,7 @@ For iterating on how the notification *looks*, `xcrun simctl push` hits the simu
 
 | Path | What |
 |---|---|
-| `server/` | The API. `npm test` runs 218 tests. |
+| `server/` | The API. `npm test` runs 237 tests. |
 | `web/` | The client — ⌘K command bar (Direction A) + live stream (Direction C). |
 | `web/screenshots/verified/` | Screenshots I took against the real server. |
 | `cli/` | `login`, `register`, `send`, `watch`, `ls`, `rm`, `status`. |

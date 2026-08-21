@@ -68,7 +68,9 @@ sequenceDiagram
 
 ---
 
-## API surface (the whole thing)
+## API surface
+
+> ⚠️ **Superseded — this is the Weekend 0 surface.** [`CONTRACT.md`](CONTRACT.md) is authoritative and covers the presigned upload path, SSE, revoke and the blob route. Two details below were also wrong as written: `POST /devices` returns a full `Device`, not `{device_id}`, and `POST /transfers` returns `{transfer: Transfer}`, not `{transfer_id}`. Every route takes the `/v1` prefix.
 
 Every route takes `Authorization: Bearer <TRANSMAT_TOKEN>`.
 

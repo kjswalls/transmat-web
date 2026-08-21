@@ -245,7 +245,7 @@ export default function CommandBar({
 function DeviceRow({ row, active, selected, onHover, onClick }) {
   const d = row.device;
   const Glyph = platformIcon(d.platform);
-  const online = Date.now() - Date.parse(d.last_seen_at) < 5 * 60_000;
+  const online = Date.now() - Date.parse(d.last_seen_at) < 120_000;
   return (
     <button
       type="button"
