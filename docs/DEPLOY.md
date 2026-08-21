@@ -26,15 +26,22 @@ cd server
 fly launch --no-deploy --copy-config      # claim a name; edit primary_region first
 fly volumes create transmat_data --size 3 # SQLite + blobs; without it a redeploy wipes everything
 fly secrets set TRANSMAT_TOKEN="$(openssl rand -base64 32)"
+# PUBLIC_BASE_URL must be your real hostname, or the local driver hands
+# clients localhost URLs. fly.toml has a placeholder — edit it.
 fly deploy
 ```
 
-Then the APNs secrets. The `.p8` is a file, so pass it as base64 and have the app write it out, or bake it into the image via a build secret — **do not commit it**:
+**Deploy with `PUSH_DRIVER=console` first** (that is what `fly.toml` ships). The server refuses to boot with `apns` and no key, so setting it before the secrets exist crash-loops the machine.
+
+Then the APNs secrets. The server reads the `.p8` **from a path** (`APNS_KEY_PATH`), so the file has to be in the image — add it via a Docker build secret or bake it into a private image. **Do not commit it.**
 
 ```bash
 fly secrets set APNS_KEY_ID=... APNS_TEAM_ID=... APNS_BUNDLE_ID=com.kjswalls.transmat APNS_ENV=sandbox
-fly secrets set APNS_KEY_B64="$(base64 -w0 secrets/AuthKey_XXXXXXXX.p8)"
+# then, once the key file is present in the image:
+fly secrets set PUSH_DRIVER=apns APNS_KEY_PATH=/app/secrets/AuthKey_XXXXXXXX.p8
 ```
+
+> If you would rather pass the key as base64 than bake a file into the image, that is a small change to `readKey()` in `server/src/push.js` — it does not support it today.
 
 Two settings in `fly.toml` are deliberate and worth not "optimising" later: **`auto_stop_machines = false`** and **`min_machines_running = 1`**. A sleeping machine cannot send a push, and SSE clients hold long-lived connections that a scale-to-zero setup will keep tearing down.
 

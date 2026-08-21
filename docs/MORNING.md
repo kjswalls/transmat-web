@@ -78,7 +78,7 @@ Nothing caught this because every other test ran the `local` driver — `r2` had
 
 ## Weekend 1 was started too
 
-**Server half — built and tested (237 tests).** Uploads can now go *straight to storage*: reserve → PUT to a signed URL → complete. Verified end to end on both drivers by hand, including a 1.5 MB file that went to S3 without the server seeing a byte — **but the automated tests cover the local driver only**, which is exactly the gap that let the earlier R2 bug through. An r2-backed presigned test is queued.
+**Server half — built and tested (237 tests).** Uploads can now go *straight to storage*: reserve → PUT to a signed URL → complete. ⚠️ **That hand-verification was misleading, and the security review caught why.** The R2 presigned PUT was signed with a CRC32 of an *empty* body — the AWS SDK hoists a checksum for the empty payload into the signed query string, and S3 and R2 reject every real upload to such a URL with `BadDigest`. **Every upload to real Cloudflare R2 would have failed.** It passed my test because `s3rver` does not validate checksums: the mock was more permissive than the real service. Now fixed, with an end-to-end r2 test driving the full HTTP surface.
 
 The design decision behind it, which is not obvious: a background `URLSession` hands off to `nsurlsessiond` and **your process stops existing**, so multipart is out — every part uploads and `CompleteMultipartUpload` never fires ([aws-sdk-ios#3173](https://github.com/aws-amplify/aws-sdk-ios/issues/3173)). Hence a single PUT. And because a presigned URL cannot enforce `Content-Length`, the declared size is only a claim: `complete` stats what actually landed and deletes anything that does not match. Nothing is pushed or even listed until then.
 

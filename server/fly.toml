@@ -14,7 +14,13 @@ primary_region = "lhr"          # put this near you, not near us
   NODE_ENV = "production"
   DATA_DIR = "/data"
   STORAGE_DRIVER = "local"      # flip to "r2" once the bucket exists
-  PUSH_DRIVER = "apns"
+  # The local driver builds every signed URL from this. Leave it unset and the
+  # server hands your phone http://localhost:8787/blob/... which also trips ATS.
+  PUBLIC_BASE_URL = "https://transmat.fly.dev"   # <- your real hostname
+  # Deliberately console, not apns: DEPLOY.md has you deploy BEFORE setting
+  # the APNs secrets, and booting with apns and no key crash-loops the machine.
+  # Flip to "apns" once `fly secrets set APNS_*` has run.
+  PUSH_DRIVER = "console"
 
 # SQLite and, on the local driver, the blobs. Without this every redeploy
 # wipes the database.

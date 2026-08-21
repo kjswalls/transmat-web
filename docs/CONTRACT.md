@@ -120,6 +120,18 @@ Rules that matter:
 - **Abandoned uploads are reclaimed.** Bytes can land and the client vanish. The janitor cancels transfers left in `uploading` past `UPLOAD_DEADLINE_MS` (6h) and deletes the orphaned bytes, which are otherwise billed forever and invisible to the expiry sweep.
 - `transfers.state` gains `uploading` and `cancelled`.
 
+**Hardening added by the security review** (all demonstrated by a failing test first):
+
+- **`complete` refuses while a PUT is streaming** (400). Without this you could race a slow second PUT against `complete`: the server stats 5 verified bytes, certifies and pushes, and the in-flight PUT then renames different bytes over the key. A blob-key registry now claims a key for the life of a PUT, and the PUT re-reads the row afterwards and deletes its own bytes if the state moved.
+- **`complete` is an atomic conditional transition.** Six concurrent completes used to produce six pushes and six SSE events; a `complete` racing a `revoke` used to resurrect the revoked transfer. Only the request that actually changes the row announces.
+- **The PUT enforces the *declared* size, not just the 2 GB ceiling** — `min(declared, MAX_FILE_BYTES)`, aborted mid-stream, returned as `413`.
+- **Reservations are bounded**: `MAX_INFLIGHT_UPLOADS = 64` globally. Stated plainly: with one shared bearer token there is no per-user anything, this is a global ceiling, and there is still **no rate limiting anywhere in the server**.
+- **`uploading` and `cancelled` refuse `GET /v1/transfers/:id/blob`** (404) and are excluded from `GET /v1/transfers`. Unverified, half-written bytes used to be downloadable.
+- **`mime_type` and `name` are validated at reservation** (400). A `mime_type` containing CRLF used to be stored verbatim and fed to `new Response()`, which throws — permanently 500ing every download of that blob.
+- **The janitor claims a row before deleting its bytes**, so a sweep can no longer destroy a transfer that completed while the sweep was running.
+
+⚠️ **The R2 presigned PUT was signed with a checksum of an empty body.** The AWS SDK's default `requestChecksumCalculation: 'WHEN_SUPPORTED'` hoists `x-amz-checksum-crc32` for the *empty* payload into the signed query string; S3 and R2 validate it and reject every real upload with `BadDigest`. Fixed with `WHEN_REQUIRED`. Worth remembering why it survived earlier testing: **s3rver does not validate checksums**, so a mock that is more permissive than the real service passed it clean.
+
 ## Amendments accepted during the build
 
 The implementation needed these; they are supersets of the frozen contract, not changes to it. Recorded here so the docs match reality.

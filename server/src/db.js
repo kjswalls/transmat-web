@@ -298,7 +298,12 @@ export function openDb(filePath) {
     listTransfers(f = {}) {
       // Transfers still mid-upload are not yet real: the bytes are unverified
       // and no recipient has been told. They surface only once completed.
-      const where = ["t.state != 'uploading'"];
+      // Both states are internal to the upload dance. 'uploading' is
+      // unverified; 'cancelled' is a reservation that failed verification or
+      // was reclaimed by the janitor. Neither is a thing a recipient can act
+      // on, and leaking 'cancelled' puts a phantom undownloadable row in
+      // every client's stream after the first failed upload.
+      const where = ["t.state NOT IN ('uploading','cancelled')"];
       const params = [];
       const limit = Math.min(Math.max(Number(f.limit) || 50, 1), 200);
 

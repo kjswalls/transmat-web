@@ -13,7 +13,7 @@ export default function TransferRow({ transfer: t, selfDeviceId, onOpen, onRevok
   const deliveries = t.deliveries || [];
   const dir = direction(t, selfDeviceId);
   const sending = typeof t._sending === 'number';
-  const dead = t.state === 'expired' || t.state === 'revoked';
+  const dead = t.state === 'expired' || t.state === 'revoked' || t.state === 'cancelled';
   const exp = expiry(t.expires_at, now);
   const Glyph = sending ? IconSend : kindIcon(t);
   const arriving =
