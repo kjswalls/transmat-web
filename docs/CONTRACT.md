@@ -107,7 +107,7 @@ The share extension cannot stream a multipart form: an iOS background `URLSessio
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/v1/transfers` | JSON with `mode: "presigned"`, plus `name`, `mime_type`, `size`, `to`, `from`, `expires_in_days` | `{transfer, upload: {method, url, headers, expiresAt}}` — transfer is in state `uploading` |
+| POST | `/v1/transfers` | JSON with `mode: "presigned"`, plus `name`, `mime_type`, `size`, `to`, `from`, `expires_in_days` | `{transfer, upload: {method, url, headers, expires_at}}` — transfer is in state `uploading` |
 | PUT | *(the `upload.url`)* | the raw bytes, **no bearer** | 204 |
 | POST | `/v1/transfers/:id/complete` | — | `{transfer}` in state `complete` |
 

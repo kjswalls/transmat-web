@@ -149,7 +149,7 @@ export function createLocalStorage(config) {
         method: /** @type {'PUT'} */ ('PUT'),
         url: `${config.publicBaseUrl}/blob/${encodeURIComponent(key)}?exp=${exp}&sig=${sig}`,
         headers: {},
-        expiresAt: new Date(exp * 1000).toISOString(),
+        expires_at: new Date(exp * 1000).toISOString(),
       };
     },
 
@@ -326,7 +326,7 @@ export async function createR2Storage(config) {
         method: /** @type {'PUT'} */ ('PUT'),
         url,
         headers: meta.contentType ? { 'content-type': meta.contentType } : {},
-        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+        expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
       };
     },
 

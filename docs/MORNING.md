@@ -74,6 +74,18 @@ Nothing caught this because every other test ran the `local` driver — `r2` had
 
 **Added deploy scaffolding** — `server/Dockerfile`, `server/fly.toml`, and [`docs/DEPLOY.md`](DEPLOY.md). The headline: **you don't need to deploy anything on Saturday.** `cloudflared tunnel --url http://localhost:8787` points a public HTTPS URL at your laptop, which is all APNs needs. Fly is there for when it becomes a daily driver. The image itself is unbuilt (no Docker daemon here) and labelled as such, but the lines that usually break — the production install and the production boot — are tested.
 
+---
+
+## Weekend 1 was started too
+
+**Server half — built and tested (237 tests).** Uploads can now go *straight to storage*: reserve → PUT to a signed URL → complete. Verified end to end on both drivers, including a 1.5 MB file that went to S3 without the server seeing a byte.
+
+The design decision behind it, which is not obvious: a background `URLSession` hands off to `nsurlsessiond` and **your process stops existing**, so multipart is out — every part uploads and `CompleteMultipartUpload` never fires ([aws-sdk-ios#3173](https://github.com/aws-amplify/aws-sdk-ios/issues/3173)). Hence a single PUT. And because a presigned URL cannot enforce `Content-Length`, the declared size is only a claim: `complete` stats what actually landed and deletes anything that does not match. Nothing is pushed or even listed until then.
+
+**iOS half — written, uncompiled.** Share extension, notification service extension, and the reconciler that finishes uploads the extension started. See [`transmat-mobile/WEEKEND-1.md`](../../transmat-mobile/WEEKEND-1.md) for the Xcode target setup — two new targets and three capabilities that must match across all three, which is where the time will go.
+
+The piece worth knowing about: when a background upload lands, iOS relaunches the *app*, not the extension, and the app has never heard of that transfer. So every upload writes a ledger record into the App Group before it starts, and any process can later read it and finish the job. Completion is idempotent server-side, so replaying is free.
+
 ## Your first hour: the Apple portal
 
 This is the part only you can do, and it is the real risk in the weekend — not the code. Do it **before** writing any Swift.
