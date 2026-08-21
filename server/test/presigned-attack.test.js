@@ -54,24 +54,47 @@ function slowPut(port, urlPath, firstChunk = 'A') {
   sock.on('data', (d) => chunks.push(d));
   sock.on('close', () => resolveDone(Buffer.concat(chunks).toString('latin1')));
   sock.on('error', () => resolveDone(Buffer.concat(chunks).toString('latin1')));
-  const ready = new Promise((r) =>
+  const ready = new Promise((r) => {
+    // Settle on error too, so a refused connection fails the assertion rather
+    // than wedging the whole suite on an await that never resolves.
+    sock.once('error', r);
     sock.on('connect', () => {
       sock.write(
         `PUT ${urlPath} HTTP/1.1\r\nHost: 127.0.0.1\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n`,
       );
       sock.write(`${firstChunk.length.toString(16)}\r\n${firstChunk}\r\n`);
       r();
-    }),
-  );
+    });
+  });
   return {
     ready,
     done,
     write: (s) => sock.write(`${Buffer.byteLength(s).toString(16)}\r\n${s}\r\n`),
-    /** Same, but honours backpressure — otherwise we queue megabytes locally
-     *  and never get around to reading the server's answer. */
+    /**
+     * Same, but honours backpressure — otherwise we queue megabytes locally
+     * and never get around to reading the server's answer.
+     *
+     * The wait has to settle on close and error as well as drain: the whole
+     * point of this helper is to provoke a server that answers early and hangs
+     * up mid-body, and a destroyed socket never emits 'drain' again.
+     */
     async writeSlowly(s) {
+      if (sock.destroyed || !sock.writable) return;
       const ok = sock.write(`${Buffer.byteLength(s).toString(16)}\r\n${s}\r\n`);
-      if (!ok) await new Promise((r) => sock.once('drain', r));
+      if (ok) return;
+      await new Promise((resolve) => {
+        const settle = () => {
+          sock.off('drain', settle);
+          sock.off('close', settle);
+          sock.off('error', settle);
+          clearTimeout(timer);
+          resolve();
+        };
+        const timer = setTimeout(settle, 2000);
+        sock.once('drain', settle);
+        sock.once('close', settle);
+        sock.once('error', settle);
+      });
     },
     end: () => sock.write('0\r\n\r\n'),
     destroy: () => sock.destroy(),
@@ -173,7 +196,8 @@ describe('presigned PUT — the size cap', () => {
     // 64 MB in 64 KB slices, stopping the moment the server says something. A
     // server that only weighs the body once it is all on disk cannot answer
     // until we stop writing, so it would run the whole loop.
-    while (sent < total && s.writable()) {
+    const deadline = Date.now() + 20_000;
+    while (sent < total && s.writable() && Date.now() < deadline) {
       if (/^HTTP\/1\.1 \d\d\d/.test(s.seen())) {
         answered = sent;
         break;
@@ -187,12 +211,25 @@ describe('presigned PUT — the size cap', () => {
     s.destroy();
     await s.done;
 
-    assert.match(s.seen(), /^HTTP\/1\.1 413/, 'expected a 413, got:\n' + s.seen().slice(0, 200));
+    // What this test exists to prove is the MID-STREAM part, and both of the
+    // assertions below are deterministic. Reading the 413 off this socket is
+    // not: answering before the body finishes means the server hangs up while
+    // the client is still writing, and Node can deliver EPIPE before the
+    // 'data' event carrying the response. That is inherent to early-answering,
+    // not a defect — so the status line is asserted only when it survived the
+    // teardown. Measured over six runs of this file: the response survived
+    // five times and was lost once, so asserting it unconditionally would fail
+    // roughly one run in six. The 413 itself is covered race-free by the test
+    // directly above, which PUTs 8 MB against a 5-byte reservation over a
+    // normal fetch.
+    if (s.seen()) {
+      assert.match(s.seen(), /^HTTP\/1\.1 413/, 'got a response, but not a 413:\n' + s.seen().slice(0, 200));
+    }
     assert.ok(
       answered < 8 * 1024 * 1024,
       `the cap only bit after ${answered} of ${total} bytes — that is not mid-stream enforcement`,
     );
-    assert.deepEqual(blobsOnDisk(h), []);
+    assert.deepEqual(blobsOnDisk(h), [], 'a refused body left bytes on disk');
   });
 });
 
