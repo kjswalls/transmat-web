@@ -114,6 +114,12 @@ export function openDb(filePath) {
       (id, kind, state, file_name, mime_type, size, text, blob_key, from_device_id, created_at, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const uTransferState = q('UPDATE transfers SET state = ?, blob_key = ? WHERE id = ?');
+  // Conditional transition. Every state change that races another request or
+  // the janitor goes through this: the WHERE clause is the lock.
+  const uTransferStateIf = q(
+    'UPDATE transfers SET state = ?, blob_key = ? WHERE id = ? AND state = ?',
+  );
+  const sCountByState = q('SELECT COUNT(*) AS n FROM transfers WHERE state = ?');
   const uTransferSize = q('UPDATE transfers SET size = ? WHERE id = ?');
   const sStaleUploads = q(
     "SELECT * FROM transfers WHERE state = 'uploading' AND created_at <= ?",
@@ -265,6 +271,23 @@ export function openDb(filePath) {
       uTransferState.run(state, blobKey, id);
       return sTransferById.get(id);
     },
+
+    /**
+     * Move a transfer from one state to another, but only if it is still in
+     * `from`. Returns the updated row, or null if somebody else got there
+     * first — a revoke, a concurrent complete, the janitor.
+     *
+     * This is the whole concurrency story for transfer state: SQLite runs the
+     * UPDATE atomically, so exactly one caller can observe `changes === 1` and
+     * therefore exactly one caller pushes, announces or deletes bytes.
+     */
+    transitionTransferState(id, from, to, blobKey = null) {
+      const result = uTransferStateIf.run(to, blobKey, id, from);
+      return result.changes > 0 ? sTransferById.get(id) : null;
+    },
+
+    /** How many transfers are parked mid-upload right now. */
+    countTransfersInState: (state) => Number(sCountByState.get(state)?.n ?? 0),
 
     findExpirable: (asOfIso = nowIso()) => sExpirable.all(asOfIso),
 

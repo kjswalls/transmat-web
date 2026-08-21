@@ -29,7 +29,9 @@ export function createRecordingPush() {
 }
 
 /**
- * @param {{overrides?:Record<string,string>, push?:any, sweep?:boolean}} [options]
+ * @param {{overrides?:Record<string,string>, push?:any, sweep?:boolean, drivers?:{storage?:any, push?:any}}} [options]
+ *   `drivers.storage` swaps the storage implementation — how the r2 tests run
+ *   the whole HTTP surface against a local S3.
  */
 export async function makeServer(options = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'transmat-test-'));
@@ -38,7 +40,7 @@ export async function makeServer(options = {}) {
   const services = await createServices({
     quiet: true,
     sweep: options.sweep ?? false,
-    drivers: { push },
+    drivers: { ...(options.drivers ?? {}), push },
     overrides: {
       TRANSMAT_TOKEN: TEST_TOKEN,
       DATA_DIR: dataDir,

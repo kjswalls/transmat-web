@@ -110,7 +110,12 @@ export function transferRoutes(ctx) {
     const row = db.getTransfer(c.req.param('id'));
     if (!row) throw notFound(`no transfer ${c.req.param('id')}`);
     assertBlobAvailable(row);
-    const url = await storage.signedUrl(row.blob_key, BLOB_URL_TTL_SECONDS, row.file_name);
+    // The mime type goes with it: on r2 the stored Content-Type is whatever the
+    // uploader's PUT sent (a presigned PUT signs only `host`), so the download
+    // is served with the type from our row via ResponseContentType instead.
+    const url = await storage.signedUrl(
+      row.blob_key, BLOB_URL_TTL_SECONDS, row.file_name, row.mime_type || undefined,
+    );
     return c.redirect(url, 302);
   });
 

@@ -3,7 +3,17 @@
  * the multipart and JSON paths so they cannot drift.
  */
 import { AppError, badRequest, noTargets, tooLarge, notFound } from './errors.js';
-import { MAX_TEXT_BYTES, KINDS, BLOB_URL_TTL_SECONDS, MAX_FILE_BYTES, UPLOAD_URL_TTL_SECONDS } from './config.js';
+import {
+  MAX_TEXT_BYTES,
+  KINDS,
+  BLOB_URL_TTL_SECONDS,
+  MAX_FILE_BYTES,
+  UPLOAD_URL_TTL_SECONDS,
+  MAX_INFLIGHT_UPLOADS,
+  MAX_FILE_NAME_CHARS,
+  MAX_MIME_TYPE_CHARS,
+  isValidMimeType,
+} from './config.js';
 import { newId, nowIso } from './db.js';
 import { newBlobKey } from './storage.js';
 import { serializeTransfer, transferAudience } from './serialize.js';
@@ -199,11 +209,41 @@ export async function beginPresignedUpload(ctx, input) {
   }
 
   const declaredSize = Number(input.size);
-  if (!Number.isFinite(declaredSize) || declaredSize < 0) {
-    throw new AppError('bad_request', 'size must be a non-negative number');
+  if (!Number.isFinite(declaredSize) || declaredSize < 0 || !Number.isInteger(declaredSize)) {
+    throw new AppError('bad_request', 'size must be a non-negative integer');
   }
   if (declaredSize > MAX_FILE_BYTES) {
     throw new AppError('too_large', `declared size ${declaredSize} exceeds the ${MAX_FILE_BYTES} byte limit`);
+  }
+
+  // file_name and mime_type are echoed back as Content-Disposition and
+  // Content-Type on the blob route. Anything that cannot legally sit in a
+  // header has to be refused here, while it is still a 400 to the uploader
+  // rather than a permanent 500 on every download of the finished transfer.
+  const fileName = input.fileName == null ? 'file' : String(input.fileName);
+  if (fileName.length > MAX_FILE_NAME_CHARS) {
+    throw new AppError(
+      'bad_request',
+      `name is ${fileName.length} characters; the limit is ${MAX_FILE_NAME_CHARS}`,
+    );
+  }
+  if (input.mimeType != null && input.mimeType !== '' && !isValidMimeType(String(input.mimeType))) {
+    throw new AppError(
+      'bad_request',
+      `mime_type must be a media type of at most ${MAX_MIME_TYPE_CHARS} characters`,
+    );
+  }
+
+  // A reservation is free to make and holds storage for UPLOAD_DEADLINE_MS
+  // while staying out of GET /v1/transfers. Bound how many can be parked at
+  // once, or a loop fills the disk with transfers nobody can even see.
+  const inFlight = db.countTransfersInState('uploading');
+  if (inFlight >= MAX_INFLIGHT_UPLOADS) {
+    throw new AppError(
+      'bad_request',
+      `${inFlight} uploads are already in flight; the limit is ${MAX_INFLIGHT_UPLOADS}. ` +
+        'Complete or abandon one before reserving another.',
+    );
   }
 
   const { targets, fromDeviceId, fromKnown } = resolveTargets(db, {
@@ -221,14 +261,14 @@ export async function beginPresignedUpload(ctx, input) {
   const { expiresAt } = resolveExpiry(input.expiresInDays);
   const id = newId();
   const blobKey = newBlobKey();
-  const mimeType = input.mimeType || 'application/octet-stream';
+  const mimeType = input.mimeType ? String(input.mimeType) : 'application/octet-stream';
 
   const row = db.createTransfer(
     {
       id,
       kind: 'file',
       state: 'uploading',
-      file_name: input.fileName ?? 'file',
+      file_name: fileName,
       mime_type: mimeType,
       size: declaredSize,
       text: null,
@@ -242,9 +282,18 @@ export async function beginPresignedUpload(ctx, input) {
 
   if (fromKnown && fromDeviceId) db.touchDevice(fromDeviceId);
 
-  const upload = await storage.presignPut(blobKey, UPLOAD_URL_TTL_SECONDS, {
-    contentType: mimeType,
-  });
+  let upload;
+  try {
+    upload = await storage.presignPut(blobKey, UPLOAD_URL_TTL_SECONDS, {
+      contentType: mimeType,
+    });
+  } catch (err) {
+    // The row exists but no URL ever reached the client. Leaving it 'uploading'
+    // would hold one of the in-flight slots hostage until the janitor's 6-hour
+    // deadline for an upload that cannot possibly happen.
+    db.transitionTransferState(row.id, 'uploading', 'cancelled', null);
+    throw err;
+  }
 
   return { transfer: serializeTransfer(db, row), upload };
 }
@@ -267,27 +316,59 @@ export async function completeUpload(ctx, id) {
     throw new AppError('bad_request', `this transfer is ${row.state}, not uploading`);
   }
 
+  // Do not certify bytes that are still moving. stat() would happily report
+  // the previous PUT's size while a second PUT is mid-stream, and that PUT
+  // renames over the key afterwards — the declared-size check would then be
+  // verifying one body and delivering another.
+  if (row.blob_key && ctx.uploads?.isBusy(row.blob_key)) {
+    throw new AppError('bad_request', 'an upload to this transfer is still in progress');
+  }
+
   const stat = typeof storage.stat === 'function' ? await storage.stat(row.blob_key) : null;
   if (!stat) {
     throw new AppError('bad_request', 'no bytes were uploaded to the signed URL');
   }
   if (stat.size > MAX_FILE_BYTES) {
-    await storage.delete(row.blob_key).catch(() => {});
-    db.setTransferState(row.id, 'cancelled', null);
+    await cancelUpload(ctx, row, storage);
     throw new AppError('too_large', `uploaded ${stat.size} bytes; the limit is ${MAX_FILE_BYTES}`);
   }
   if (row.size != null && stat.size !== row.size) {
-    await storage.delete(row.blob_key).catch(() => {});
-    db.setTransferState(row.id, 'cancelled', null);
+    await cancelUpload(ctx, row, storage);
     throw new AppError(
       'bad_request',
       `declared ${row.size} bytes but ${stat.size} landed`,
     );
   }
 
+  // One winner. Everything above is a read of a row that a revoke, a second
+  // complete or the janitor may have changed since; the transition is the only
+  // point at which this request earns the right to push and announce. Losing
+  // it is not an error for a duplicate completion (that is the contract's
+  // idempotency), but it must never resurrect a transfer somebody revoked.
+  const won = db.transitionTransferState(row.id, 'uploading', 'complete', row.blob_key);
+  if (!won) {
+    const current = db.getTransfer(row.id);
+    if (current?.state === 'complete') return serializeTransfer(db, current);
+    throw new AppError(
+      'bad_request',
+      `this transfer is ${current ? current.state : 'gone'}, not uploading`,
+    );
+  }
   db.setTransferSize(row.id, stat.size);
-  db.setTransferState(row.id, 'complete', row.blob_key);
   return announceTransfer(ctx, db.getTransfer(row.id));
+}
+
+/**
+ * Reject an upload whose bytes do not match the claim: flip the row first, so
+ * a concurrent completion cannot slip in behind us, and only then delete.
+ */
+async function cancelUpload(ctx, row, storage) {
+  const cancelled = ctx.db.transitionTransferState(row.id, 'uploading', 'cancelled', null);
+  // Only the request that actually won the transition deletes; if somebody
+  // else moved the row first, the bytes are theirs to account for.
+  if (cancelled && row.blob_key) {
+    await storage.delete(row.blob_key).catch(() => {});
+  }
 }
 
 /**
@@ -322,6 +403,15 @@ async function dispatchPushes(ctx, row, serialized) {
 export function assertBlobAvailable(row) {
   if (row.state === 'revoked') throw new AppError('revoked', 'this transfer was revoked by the sender');
   if (row.state === 'expired') throw new AppError('expired', 'this transfer has expired');
+  if (row.state === 'uploading') {
+    // Bytes may be on disk, but nothing has verified them and nobody has been
+    // told the transfer exists. Handing out a signed URL now would serve an
+    // unverified — possibly half-written — body.
+    throw new AppError('bad_request', 'this upload has not been completed yet');
+  }
+  if (row.state === 'cancelled') {
+    throw new AppError('expired', 'this upload was never completed');
+  }
   if (row.kind !== 'file') {
     throw badRequest(`transfer kind "${row.kind}" has no blob; read the "text" field instead`);
   }

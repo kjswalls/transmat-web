@@ -99,7 +99,10 @@ export function createLocalStorage(config) {
      */
     async put(key, body, meta = {}) {
       const target = pathFor(key);
-      const tmp = `${target}.part-${process.pid}-${Date.now()}`;
+      // The suffix has to be unique per call, not per millisecond: two PUTs to
+      // the same key in the same tick would otherwise pick the same temp path,
+      // and the loser's cleanup deletes the winner's file out from under it.
+      const tmp = `${target}.part-${process.pid}-${crypto.randomUUID()}`;
       let size = 0;
       const limit = meta.maxBytes ?? Infinity;
       const out = fs.createWriteStream(tmp, { flags: 'wx', mode: 0o600 });
@@ -247,6 +250,13 @@ export async function createR2Storage(config) {
     region: 'auto',
     endpoint,
     credentials: { accessKeyId, secretAccessKey },
+    // WHEN_SUPPORTED (the SDK default since v3.729) makes the flexible-checksum
+    // middleware compute x-amz-checksum-crc32 over the body it is signing —
+    // which, for a presigned PutObject, is *no body at all*. The checksum for
+    // the empty payload gets hoisted into the query string and signed, and then
+    // S3 and R2 reject every real upload to that URL with BadDigest. Presigned
+    // PUTs cannot carry a payload checksum, so do not ask for one.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
   });
 
   const objectKey = (key) => {
@@ -291,13 +301,18 @@ export async function createR2Storage(config) {
       return { size };
     },
 
-    async signedUrl(key, ttlSeconds, filename) {
+    async signedUrl(key, ttlSeconds, filename, contentType) {
       const cmd = new GetObjectCommand({
         Bucket: bucket,
         Key: objectKey(key),
         ...(filename
           ? { ResponseContentDisposition: contentDisposition(filename) }
           : {}),
+        // A presigned PUT signs only `host`, so the stored Content-Type is
+        // whatever the uploader chose to send — including text/html. Override
+        // it on the way out with the type from our own row, so the object's
+        // metadata cannot decide how a browser treats the response.
+        ...(contentType ? { ResponseContentType: contentType } : {}),
       });
       return getSignedUrl(client, cmd, { expiresIn: Math.max(1, Math.floor(ttlSeconds)) });
     },

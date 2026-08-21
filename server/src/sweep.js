@@ -18,7 +18,13 @@ export async function runSweep(ctx, { asOf = nowIso(), quiet = false } = {}) {
   const due = db.findExpirable(asOf);
   let blobsDeleted = 0;
 
+  let expired = 0;
   for (const row of due) {
+    // Flip the row first. Deleting bytes and *then* recording the state is a
+    // window in which a concurrent request sees a transfer that is still
+    // 'complete' but whose blob has already gone.
+    if (!db.transitionTransferState(row.id, 'complete', 'expired', row.blob_key)) continue;
+    expired += 1;
     if (row.blob_key) {
       try {
         await storage.delete(row.blob_key);
@@ -27,7 +33,6 @@ export async function runSweep(ctx, { asOf = nowIso(), quiet = false } = {}) {
         console.warn(`[transmat] sweep: could not delete blob ${row.blob_key}: ${err.message}`);
       }
     }
-    db.setTransferState(row.id, 'expired', row.blob_key);
   }
 
   // Reclaim uploads nobody ever completed. A presigned PUT can land bytes in
@@ -38,6 +43,14 @@ export async function runSweep(ctx, { asOf = nowIso(), quiet = false } = {}) {
   const stale = db.findStaleUploads(uploadDeadline);
   let uploadsReclaimed = 0;
   for (const row of stale) {
+    // Claim the row before touching a single byte. findStaleUploads() ran an
+    // await ago; in between, the client may have completed this upload and
+    // been told so. Deleting first would destroy a delivered transfer's bytes
+    // and then mark it 'cancelled' underneath the recipient who was just
+    // pushed about it. If the conditional update finds no 'uploading' row, the
+    // upload is somebody else's business now.
+    if (!db.transitionTransferState(row.id, 'uploading', 'cancelled', null)) continue;
+    uploadsReclaimed += 1;
     if (row.blob_key) {
       try {
         await storage.delete(row.blob_key);
@@ -46,20 +59,18 @@ export async function runSweep(ctx, { asOf = nowIso(), quiet = false } = {}) {
         console.warn(`[transmat] sweep: could not delete orphaned blob ${row.blob_key}: ${err.message}`);
       }
     }
-    db.setTransferState(row.id, 'cancelled', null);
-    uploadsReclaimed += 1;
   }
 
-  if (stale.length && !quiet) {
+  if (uploadsReclaimed && !quiet) {
     console.log(`[transmat] sweep: reclaimed ${uploadsReclaimed} abandoned upload(s)`);
   }
 
-  if (due.length && !quiet) {
+  if (expired && !quiet) {
     console.log(
-      `[transmat] sweep: expired ${due.length} transfer(s), deleted ${blobsDeleted} blob(s)`,
+      `[transmat] sweep: expired ${expired} transfer(s), deleted ${blobsDeleted} blob(s)`,
     );
   }
-  return { expired: due.length, blobsDeleted, uploadsReclaimed };
+  return { expired, blobsDeleted, uploadsReclaimed };
 }
 
 /**

@@ -26,6 +26,38 @@ export const BLOB_URL_TTL_SECONDS = 300; // 5 minutes
 export const UPLOAD_URL_TTL_SECONDS = 3600; // 1 hour
 // How long a transfer may sit in 'uploading' before the janitor reclaims it.
 export const UPLOAD_DEADLINE_MS = 6 * 60 * 60 * 1000; // 6 hours
+/**
+ * How many transfers may sit in 'uploading' at once, across the whole server.
+ *
+ * A reservation costs nothing to make and buys the holder up to `size` bytes of
+ * storage for UPLOAD_DEADLINE_MS, invisible to GET /v1/transfers. Without a
+ * ceiling, a client (or a leaked token) can park 6 hours' worth of disk with a
+ * loop. This is deliberately generous — a share extension has one upload in
+ * flight, not sixty-four.
+ */
+export const MAX_INFLIGHT_UPLOADS = 64;
+
+/**
+ * Metadata that ends up in a response header has to fit in one, and must not
+ * be able to contain one. Both of these are attacker-supplied on the presigned
+ * path: `mime_type` is echoed as Content-Type and `file_name` as
+ * Content-Disposition on GET /blob/:key.
+ */
+export const MAX_MIME_TYPE_CHARS = 255;
+export const MAX_FILE_NAME_CHARS = 1024;
+
+/** RFC 9110 media type: type/subtype plus optional parameters, no controls. */
+const MIME_RE = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+\/[A-Za-z0-9!#$%&'*+.^_`|~-]+(?:[ \t]*;[\x20-\x7e]*)?$/;
+
+/** @returns {boolean} */
+export function isValidMimeType(value) {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= MAX_MIME_TYPE_CHARS &&
+    MIME_RE.test(value)
+  );
+}
 
 /**
  * Nothing that is not a multipart file part may be unbounded. A JSON transfer

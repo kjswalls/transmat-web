@@ -8,6 +8,7 @@ import { openDb } from './db.js';
 import { createStorage } from './storage.js';
 import { createPush } from './push.js';
 import { createEventHub } from './events.js';
+import { createUploadRegistry } from './uploads.js';
 import { createApp } from './app.js';
 import { startSweep, runSweep } from './sweep.js';
 
@@ -27,8 +28,12 @@ export async function createServices(options = {}) {
   const storage = options.drivers?.storage ?? (await createStorage(config));
   const push = options.drivers?.push ?? createPush(config, db);
   const events = createEventHub();
+  // Which blob keys have a PUT streaming into them right now. The blob route
+  // claims a key for the length of an upload and `complete` refuses to certify
+  // bytes that are still moving.
+  const uploads = createUploadRegistry();
 
-  const ctx = { config, db, storage, push, events };
+  const ctx = { config, db, storage, push, events, uploads };
   const app = createApp(ctx);
 
   let sweeper = null;
