@@ -1,7 +1,11 @@
 # Seeded design canvas — build output, re-seeded from design/*.dc.html
 design/*.html
 !design/*.dc.html
+# Any throwaway data dir, not just the default one. A verification run using
+# DATA_DIR=./.dataMac slipped a SQLite file into a commit because this line
+# used to be an exact match.
 .data/
+.data*/
 node_modules/
 .env
 secrets/
