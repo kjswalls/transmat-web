@@ -1,0 +1,43 @@
+# Fly.io config for the Transmat API.
+#   fly launch --no-deploy --copy-config   (once, to claim an app name)
+#   fly volumes create transmat_data --size 3
+#   fly secrets set TRANSMAT_TOKEN=... APNS_KEY_ID=... APNS_TEAM_ID=... APNS_BUNDLE_ID=...
+#   fly deploy
+app = "transmat"
+primary_region = "lhr"          # put this near you, not near us
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8787"
+  NODE_ENV = "production"
+  DATA_DIR = "/data"
+  STORAGE_DRIVER = "local"      # flip to "r2" once the bucket exists
+  PUSH_DRIVER = "apns"
+
+# SQLite and, on the local driver, the blobs. Without this every redeploy
+# wipes the database.
+[[mounts]]
+  source = "transmat_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # Do NOT let the machine sleep. SSE holds long-lived connections, and a
+  # sleeping server means a push never gets sent in the first place.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    # SSE clients hold a connection open each, so this is device count, not
+    # request rate. Keep it generous.
+    hard_limit = 200
+    soft_limit = 150
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
