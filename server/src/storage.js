@@ -48,17 +48,19 @@ export class BlobTooLargeError extends Error {
  * @param {string} key
  * @param {number|string} exp unix seconds
  */
-export function signBlob(secret, key, exp) {
-  return crypto.createHmac('sha256', secret).update(`${key}:${exp}`).digest('hex');
+export function signBlob(secret, key, exp, purpose = 'get') {
+  // `purpose` is in the HMAC input so a download link can never be replayed as
+  // an upload: the two signatures are unrelated even for the same key and exp.
+  return crypto.createHmac('sha256', secret).update(`${purpose}:${key}:${exp}`).digest('hex');
 }
 
 /**
  * Constant-time verification of a `/blob/:key?exp=&sig=` signature.
  * @returns {'ok'|'expired'|'invalid'}
  */
-export function verifyBlobSignature(secret, key, exp, sig) {
+export function verifyBlobSignature(secret, key, exp, sig, purpose = 'get') {
   if (typeof sig !== 'string' || typeof exp !== 'string') return 'invalid';
-  const expected = signBlob(secret, key, exp);
+  const expected = signBlob(secret, key, exp, purpose);
   const a = Buffer.from(expected, 'utf8');
   const b = Buffer.from(sig, 'utf8');
   // Length check first — timingSafeEqual throws on mismatched lengths. Lengths
@@ -131,6 +133,24 @@ export function createLocalStorage(config) {
       const exp = Math.floor(Date.now() / 1000) + Math.max(1, Math.floor(ttlSeconds));
       const sig = signBlob(config.blobSigningSecret, key, exp);
       return `${config.publicBaseUrl}/blob/${encodeURIComponent(key)}?exp=${exp}&sig=${sig}`;
+    },
+
+    /**
+     * A signed URL the client can PUT bytes to. Mirrors an R2 presigned PUT so
+     * both drivers present the same contract to the share extension.
+     * @param {string} key
+     * @param {number} ttlSeconds
+     */
+    async presignPut(key, ttlSeconds) {
+      if (!isValidKey(key)) throw new Error(`invalid blob key: ${key}`);
+      const exp = Math.floor(Date.now() / 1000) + Math.max(1, Math.floor(ttlSeconds));
+      const sig = signBlob(config.blobSigningSecret, key, exp, 'put');
+      return {
+        method: /** @type {'PUT'} */ ('PUT'),
+        url: `${config.publicBaseUrl}/blob/${encodeURIComponent(key)}?exp=${exp}&sig=${sig}`,
+        headers: {},
+        expiresAt: new Date(exp * 1000).toISOString(),
+      };
     },
 
     async delete(key) {
@@ -215,7 +235,8 @@ export function createLocalStorage(config) {
  * @param {{r2:{accountId:string,accessKeyId:string,secretAccessKey:string,bucket:string,endpoint?:string}}} config
  */
 export async function createR2Storage(config) {
-  const { S3Client, DeleteObjectCommand, GetObjectCommand } = await import('@aws-sdk/client-s3');
+  const { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, HeadObjectCommand } =
+    await import('@aws-sdk/client-s3');
   const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
   const { Upload } = await import('@aws-sdk/lib-storage');
 
@@ -279,6 +300,46 @@ export async function createR2Storage(config) {
           : {}),
       });
       return getSignedUrl(client, cmd, { expiresIn: Math.max(1, Math.floor(ttlSeconds)) });
+    },
+
+    /**
+     * A presigned PUT. Deliberately a SINGLE request, not multipart: an iOS
+     * background URLSession hands the transfer to nsurlsessiond and the app is
+     * not running to orchestrate parts, so a multipart upload reliably strands
+     * itself — every part lands and CompleteMultipartUpload never fires
+     * (documented in aws-amplify/aws-sdk-ios#3173). One PUT covers everything
+     * up to S3's 5 GB single-request ceiling, comfortably above our 2 GB cap.
+     *
+     * Note the size cap is NOT enforced here. Presigned URLs cannot carry an
+     * enforced Content-Length — the caller must verify with stat() afterwards
+     * and delete anything oversized. See POST /v1/transfers/:id/complete.
+     */
+    async presignPut(key, ttlSeconds, meta = {}) {
+      const cmd = new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey(key),
+        ...(meta.contentType ? { ContentType: meta.contentType } : {}),
+      });
+      const expiresIn = Math.max(1, Math.floor(ttlSeconds));
+      const url = await getSignedUrl(client, cmd, { expiresIn });
+      return {
+        method: /** @type {'PUT'} */ ('PUT'),
+        url,
+        headers: meta.contentType ? { 'content-type': meta.contentType } : {},
+        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+      };
+    },
+
+    /** @returns {Promise<{size:number, mtime:Date}|null>} */
+    async stat(key) {
+      try {
+        const head = await client.send(
+          new HeadObjectCommand({ Bucket: bucket, Key: objectKey(key) }),
+        );
+        return { size: Number(head.ContentLength ?? 0), mtime: head.LastModified ?? new Date() };
+      } catch {
+        return null;
+      }
     },
 
     async delete(key) {

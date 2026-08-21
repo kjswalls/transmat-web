@@ -2,9 +2,10 @@
  * Transfer creation: the rules from docs/CONTRACT.md in one place, shared by
  * the multipart and JSON paths so they cannot drift.
  */
-import { AppError, badRequest, noTargets, tooLarge } from './errors.js';
-import { MAX_TEXT_BYTES, KINDS, BLOB_URL_TTL_SECONDS } from './config.js';
+import { AppError, badRequest, noTargets, tooLarge, notFound } from './errors.js';
+import { MAX_TEXT_BYTES, KINDS, BLOB_URL_TTL_SECONDS, MAX_FILE_BYTES, UPLOAD_URL_TTL_SECONDS } from './config.js';
 import { newId, nowIso } from './db.js';
+import { newBlobKey } from './storage.js';
 import { serializeTransfer, transferAudience } from './serialize.js';
 import { buildPushPayload } from './push.js';
 
@@ -163,6 +164,15 @@ export async function createTransfer(ctx, input) {
 
   if (fromKnown && fromDeviceId) db.touchDevice(fromDeviceId);
 
+  return announceTransfer(ctx, row);
+}
+
+/**
+ * Push, then announce. Shared by the direct upload and the two-phase
+ * presigned path, so both report identical delivery states.
+ */
+async function announceTransfer(ctx, row) {
+  const { db } = ctx;
   await dispatchPushes(ctx, row, serializeTransfer(db, row));
 
   // Announce only after the fan-out, so the SSE payload and the HTTP response
@@ -171,8 +181,113 @@ export async function createTransfer(ctx, input) {
   ctx.events.publish('transfer.created', { transfer: serialized }, {
     audience: transferAudience(db, row),
   });
-
   return serialized;
+}
+
+/**
+ * Phase one of a direct-to-storage upload: validate the targets, reserve a
+ * transfer row in state 'uploading', and hand back a signed URL to PUT to.
+ *
+ * Deliberately a single PUT rather than multipart — see storage.js presignPut.
+ * Nothing is pushed and nothing is announced yet: the transfer does not exist
+ * as far as recipients are concerned until the bytes are verified.
+ */
+export async function beginPresignedUpload(ctx, input) {
+  const { db, storage } = ctx;
+  if (typeof storage.presignPut !== 'function') {
+    throw new AppError('bad_request', 'this storage driver does not support presigned uploads');
+  }
+
+  const declaredSize = Number(input.size);
+  if (!Number.isFinite(declaredSize) || declaredSize < 0) {
+    throw new AppError('bad_request', 'size must be a non-negative number');
+  }
+  if (declaredSize > MAX_FILE_BYTES) {
+    throw new AppError('too_large', `declared size ${declaredSize} exceeds the ${MAX_FILE_BYTES} byte limit`);
+  }
+
+  const { targets, fromDeviceId, fromKnown } = resolveTargets(db, {
+    to: input.to,
+    from: input.from,
+  });
+  if (targets.length === 0) {
+    throw noTargets(
+      db.listDeviceIds().length === 0
+        ? 'no devices are registered — POST /v1/devices first'
+        : 'no devices matched the requested targets',
+    );
+  }
+
+  const { expiresAt } = resolveExpiry(input.expiresInDays);
+  const id = newId();
+  const blobKey = newBlobKey();
+  const mimeType = input.mimeType || 'application/octet-stream';
+
+  const row = db.createTransfer(
+    {
+      id,
+      kind: 'file',
+      state: 'uploading',
+      file_name: input.fileName ?? 'file',
+      mime_type: mimeType,
+      size: declaredSize,
+      text: null,
+      blob_key: blobKey,
+      from_device_id: fromKnown ? fromDeviceId : null,
+      created_at: nowIso(),
+      expires_at: expiresAt,
+    },
+    targets,
+  );
+
+  if (fromKnown && fromDeviceId) db.touchDevice(fromDeviceId);
+
+  const upload = await storage.presignPut(blobKey, UPLOAD_URL_TTL_SECONDS, {
+    contentType: mimeType,
+  });
+
+  return { transfer: serializeTransfer(db, row), upload };
+}
+
+/**
+ * Phase two: the bytes are supposedly in storage. Verify what actually landed
+ * before anyone is told about it.
+ *
+ * This check is not optional. A presigned URL cannot carry an enforced
+ * Content-Length (S3 does not support it on PUT), so the declared size is a
+ * claim until stat() confirms it. Anything that does not match is deleted and
+ * rejected rather than delivered.
+ */
+export async function completeUpload(ctx, id) {
+  const { db, storage } = ctx;
+  const row = db.getTransfer(id);
+  if (!row) throw notFound('no such transfer');
+  if (row.state === 'complete') return serializeTransfer(db, row); // idempotent
+  if (row.state !== 'uploading') {
+    throw new AppError('bad_request', `this transfer is ${row.state}, not uploading`);
+  }
+
+  const stat = typeof storage.stat === 'function' ? await storage.stat(row.blob_key) : null;
+  if (!stat) {
+    throw new AppError('bad_request', 'no bytes were uploaded to the signed URL');
+  }
+  if (stat.size > MAX_FILE_BYTES) {
+    await storage.delete(row.blob_key).catch(() => {});
+    db.setTransferState(row.id, 'cancelled', null);
+    throw new AppError('too_large', `uploaded ${stat.size} bytes; the limit is ${MAX_FILE_BYTES}`);
+  }
+  if (row.size != null && stat.size !== row.size) {
+    await storage.delete(row.blob_key).catch(() => {});
+    db.setTransferState(row.id, 'cancelled', null);
+    throw new AppError(
+      'bad_request',
+      `declared ${row.size} bytes but ${stat.size} landed`,
+    );
+  }
+
+  db.setTransferSize(row.id, stat.size);
+  db.setTransferState(row.id, 'complete', row.blob_key);
+  return announceTransfer(ctx, db.getTransfer(row.id));
 }
 
 /**

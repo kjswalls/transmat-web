@@ -114,6 +114,10 @@ export function openDb(filePath) {
       (id, kind, state, file_name, mime_type, size, text, blob_key, from_device_id, created_at, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const uTransferState = q('UPDATE transfers SET state = ?, blob_key = ? WHERE id = ?');
+  const uTransferSize = q('UPDATE transfers SET size = ? WHERE id = ?');
+  const sStaleUploads = q(
+    "SELECT * FROM transfers WHERE state = 'uploading' AND created_at <= ?",
+  );
   const sExpirable = q(
     "SELECT * FROM transfers WHERE state = 'complete' AND expires_at <= ?",
   );
@@ -248,6 +252,15 @@ export function openDb(filePath) {
       return sTransferById.get(t.id);
     },
 
+    setTransferSize(id, size) {
+      uTransferSize.run(size, id);
+    },
+
+    /** Transfers stuck mid-upload — the client never came back to complete. */
+    findStaleUploads(before) {
+      return sStaleUploads.all(before);
+    },
+
     setTransferState(id, state, blobKey = null) {
       uTransferState.run(state, blobKey, id);
       return sTransferById.get(id);
@@ -260,7 +273,9 @@ export function openDb(filePath) {
      * @param {{device_id?:string, direction?:string, kind?:string, q?:string, limit?:number, cursor?:{created_at:string,id:string}}} f
      */
     listTransfers(f = {}) {
-      const where = [];
+      // Transfers still mid-upload are not yet real: the bytes are unverified
+      // and no recipient has been told. They surface only once completed.
+      const where = ["t.state != 'uploading'"];
       const params = [];
       const limit = Math.min(Math.max(Number(f.limit) || 50, 1), 200);
 

@@ -20,6 +20,12 @@ export const REPO_ROOT = path.resolve(SERVER_ROOT, '..');
 export const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
 export const MAX_TEXT_BYTES = 64 * 1024; // 64 KB
 export const BLOB_URL_TTL_SECONDS = 300; // 5 minutes
+// Uploads get longer than downloads: a share extension hands the transfer to
+// nsurlsessiond, which may sit on it for a while on a bad network before the
+// bytes actually move. Too short and a legitimate background upload 403s.
+export const UPLOAD_URL_TTL_SECONDS = 3600; // 1 hour
+// How long a transfer may sit in 'uploading' before the janitor reclaims it.
+export const UPLOAD_DEADLINE_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 /**
  * Nothing that is not a multipart file part may be unbounded. A JSON transfer

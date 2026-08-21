@@ -17,6 +17,8 @@ import { parseMultipart, fieldsToMap } from '../multipart.js';
 import { serializeTransfer, transferAudience, encodeCursor, decodeCursor } from '../serialize.js';
 import {
   createTransfer,
+  beginPresignedUpload,
+  completeUpload,
   resolveKind,
   assertTextWithinCap,
   assertBlobAvailable,
@@ -34,11 +36,35 @@ export function transferRoutes(ctx) {
       return c.json({ transfer: await createFromMultipart(ctx, c) });
     }
     if (contentType.startsWith('application/json') || contentType === '') {
-      return c.json({ transfer: await createFromJson(ctx, c) });
+      const body = await readJsonBody(c);
+      // mode:'presigned' reserves a transfer and hands back a URL to PUT to,
+      // instead of streaming the bytes through this server. This is the path
+      // the iOS share extension uses, because a background URLSession can only
+      // upload a file to a URL — it cannot stream through a multipart form.
+      if (body?.mode === 'presigned') {
+        const result = await beginPresignedUpload(ctx, {
+          fileName: body.name ?? body.file_name,
+          mimeType: body.mime_type,
+          size: body.size,
+          to: normalizeTo(body.to),
+          from: body.from ?? null,
+          expiresInDays: body.expires_in_days,
+        });
+        return c.json(result);
+      }
+      return c.json({ transfer: await createFromJson(ctx, c, body) });
     }
     throw badRequest(
       `content-type must be multipart/form-data or application/json (got "${contentType}")`,
     );
+  });
+
+  /* -------------------------------------------------------- POST complete */
+  // Phase two of a presigned upload. Idempotent: completing an already
+  // complete transfer returns it rather than erroring, because a background
+  // URLSession can genuinely deliver the same completion twice.
+  app.post('/:id/complete', async (c) => {
+    return c.json({ transfer: await completeUpload(ctx, c.req.param('id')) });
   });
 
   /* ----------------------------------------------------------------- GET */
@@ -188,7 +214,8 @@ function normalizeUploadError(err) {
 /* json                                                                       */
 /* -------------------------------------------------------------------------- */
 
-async function createFromJson(ctx, c) {
+/** Parse and validate a JSON body once, so the route can branch on `mode`. */
+async function readJsonBody(c) {
   const raw = await readBodyWithCap(c, MAX_JSON_BODY_BYTES);
   let body;
   try {
@@ -199,7 +226,16 @@ async function createFromJson(ctx, c) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw badRequest('body must be a JSON object');
   }
+  return body;
+}
 
+/** `to` accepts a single value or a list; always hand the service a list. */
+function normalizeTo(to) {
+  if (to == null) return [];
+  return Array.isArray(to) ? to.map(String) : [String(to)];
+}
+
+async function createFromJson(ctx, c, body) {
   const text = typeof body.text === 'string' ? body.text : null;
   if (text != null) assertTextWithinCap(text);
 
@@ -209,11 +245,9 @@ async function createFromJson(ctx, c) {
   }
   if (!text) throw badRequest(`kind=${kind} requires a "text" field`);
 
-  const to = body.to == null ? [] : Array.isArray(body.to) ? body.to.map(String) : [String(body.to)];
-
   return createTransfer(ctx, {
     kind,
-    to,
+    to: normalizeTo(body.to),
     from: body.from != null ? String(body.from) : null,
     text,
     expiresInDays: body.expires_in_days,

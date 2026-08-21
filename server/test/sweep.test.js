@@ -23,14 +23,14 @@ test('expiry sweep', async (t) => {
 
   await t.test('nothing expires before its time', async () => {
     const result = await runSweep(s, { quiet: true });
-    assert.deepEqual(result, { expired: 0, blobsDeleted: 0 });
+    assert.deepEqual(result, { expired: 0, blobsDeleted: 0, uploadsReclaimed: 0 });
     assert.equal(fs.readdirSync(blobsDir).length, 1);
   });
 
   await t.test('past their expiry, bytes are deleted and state flips', async () => {
     const future = new Date(Date.now() + 2 * 86400 * 1000).toISOString();
     const result = await runSweep(s, { asOf: future, quiet: true });
-    assert.deepEqual(result, { expired: 2, blobsDeleted: 1 });
+    assert.deepEqual(result, { expired: 2, blobsDeleted: 1, uploadsReclaimed: 0 });
     assert.deepEqual(fs.readdirSync(blobsDir), [], 'blob bytes are gone');
   });
 
@@ -57,6 +57,7 @@ test('expiry sweep', async (t) => {
     assert.deepEqual(await runSweep(s, { asOf: future, quiet: true }), {
       expired: 0,
       blobsDeleted: 0,
+      uploadsReclaimed: 0,
     });
   });
 
@@ -72,6 +73,7 @@ test('expiry sweep', async (t) => {
     assert.deepEqual(await runSweep(fresh, { asOf: future, quiet: true }), {
       expired: 0,
       blobsDeleted: 0,
+      uploadsReclaimed: 0,
     });
     assert.equal(
       (await fresh.json(`/v1/transfers/${body.transfer.transfer_id}`)).body.transfer.state,

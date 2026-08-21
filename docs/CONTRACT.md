@@ -101,6 +101,25 @@ event: delivery.acked     data: {"transfer_id": "...", "delivery_id": "...", "de
 
 With `?device_id=X`, only events where X is a recipient or the sender.
 
+## Presigned upload (added for Weekend 1)
+
+The share extension cannot stream a multipart form: an iOS background `URLSession` hands the transfer to `nsurlsessiond` and the app is not running, so it can only **PUT a file to a URL**. Multipart is not an option either — every part lands and `CompleteMultipartUpload` never fires when the app is gone ([aws-sdk-ios#3173](https://github.com/aws-amplify/aws-sdk-ios/issues/3173)). So uploads get a two-phase, single-PUT path.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/v1/transfers` | JSON with `mode: "presigned"`, plus `name`, `mime_type`, `size`, `to`, `from`, `expires_in_days` | `{transfer, upload: {method, url, headers, expiresAt}}` — transfer is in state `uploading` |
+| PUT | *(the `upload.url`)* | the raw bytes, **no bearer** | 204 |
+| POST | `/v1/transfers/:id/complete` | — | `{transfer}` in state `complete` |
+
+Rules that matter:
+
+- **The declared `size` is a claim.** A presigned URL cannot carry an enforced `Content-Length` — S3 does not support it on PUT — so `complete` calls `HeadObject`/`stat` and compares. A mismatch deletes the bytes and returns 400; over the cap returns 413. Nothing is delivered on an unverified byte count.
+- **Nothing is pushed or announced until `complete`.** A transfer in state `uploading` is excluded from `GET /v1/transfers` entirely: it does not exist to recipients yet.
+- **`complete` is idempotent.** A background `URLSession` can genuinely deliver the same completion twice; the second call returns the transfer rather than pushing again.
+- **The upload URL is bound to `PUT`.** The local driver's signature includes a purpose, so a download link can never be replayed to overwrite a blob, and a completed transfer refuses further PUTs.
+- **Abandoned uploads are reclaimed.** Bytes can land and the client vanish. The janitor cancels transfers left in `uploading` past `UPLOAD_DEADLINE_MS` (6h) and deletes the orphaned bytes, which are otherwise billed forever and invisible to the expiry sweep.
+- `transfers.state` gains `uploading` and `cancelled`.
+
 ## Amendments accepted during the build
 
 The implementation needed these; they are supersets of the frozen contract, not changes to it. Recorded here so the docs match reality.

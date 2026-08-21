@@ -7,6 +7,7 @@
  * interval.
  */
 import { nowIso } from './db.js';
+import { UPLOAD_DEADLINE_MS } from './config.js';
 
 /**
  * @param {{db:import('./db.js').Db, storage:any}} ctx
@@ -29,12 +30,36 @@ export async function runSweep(ctx, { asOf = nowIso(), quiet = false } = {}) {
     db.setTransferState(row.id, 'expired', row.blob_key);
   }
 
+  // Reclaim uploads nobody ever completed. A presigned PUT can land bytes in
+  // storage and then the client vanishes — app killed, network died, user gave
+  // up — and without this those bytes are billed forever and invisible to the
+  // expiry sweep, which only looks at 'complete'.
+  const uploadDeadline = new Date(new Date(asOf).getTime() - UPLOAD_DEADLINE_MS).toISOString();
+  const stale = db.findStaleUploads(uploadDeadline);
+  let uploadsReclaimed = 0;
+  for (const row of stale) {
+    if (row.blob_key) {
+      try {
+        await storage.delete(row.blob_key);
+        blobsDeleted += 1;
+      } catch (err) {
+        console.warn(`[transmat] sweep: could not delete orphaned blob ${row.blob_key}: ${err.message}`);
+      }
+    }
+    db.setTransferState(row.id, 'cancelled', null);
+    uploadsReclaimed += 1;
+  }
+
+  if (stale.length && !quiet) {
+    console.log(`[transmat] sweep: reclaimed ${uploadsReclaimed} abandoned upload(s)`);
+  }
+
   if (due.length && !quiet) {
     console.log(
       `[transmat] sweep: expired ${due.length} transfer(s), deleted ${blobsDeleted} blob(s)`,
     );
   }
-  return { expired: due.length, blobsDeleted };
+  return { expired: due.length, blobsDeleted, uploadsReclaimed };
 }
 
 /**

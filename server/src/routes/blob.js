@@ -9,10 +9,53 @@ import { Hono } from 'hono';
 import { Readable } from 'node:stream';
 import { AppError, notFound } from '../errors.js';
 import { verifyBlobSignature, isValidKey, contentDisposition } from '../storage.js';
+import { MAX_FILE_BYTES } from '../config.js';
 
 export function blobRoutes(ctx) {
   const app = new Hono();
   const { config, db, storage } = ctx;
+
+  /**
+   * PUT /blob/:key?exp=&sig=  — local driver's answer to a presigned PUT.
+   *
+   * Signed with purpose 'put', so a download link cannot be replayed to
+   * overwrite a blob. The transfer row must still be in state 'uploading':
+   * that stops a completed (or revoked) transfer's bytes being swapped out
+   * from under a recipient who already has the link.
+   */
+  app.put('/:key', async (c) => {
+    if (storage.name !== 'local') {
+      throw notFound('this server does not accept direct blob uploads');
+    }
+    const key = c.req.param('key');
+    if (!isValidKey(key)) throw notFound('no such blob');
+
+    const verdict = verifyBlobSignature(
+      config.blobSigningSecret, key, c.req.query('exp') ?? '', c.req.query('sig') ?? '', 'put',
+    );
+    if (verdict === 'expired') throw new AppError('expired', 'this upload link has expired');
+    if (verdict !== 'ok') throw new AppError('signature_invalid', 'bad or missing signature');
+
+    const transfer = db.getTransferByBlobKey(key);
+    if (!transfer) throw notFound('no such blob');
+    if (transfer.state !== 'uploading') {
+      throw new AppError('bad_request', `this upload is already ${transfer.state}`);
+    }
+
+    const body = c.req.raw.body;
+    if (!body) throw new AppError('bad_request', 'no request body');
+
+    try {
+      await storage.put(key, Readable.fromWeb(body), {
+        contentType: transfer.mime_type || 'application/octet-stream',
+        maxBytes: MAX_FILE_BYTES,
+      });
+    } catch (err) {
+      await storage.delete(key).catch(() => {});
+      throw err;
+    }
+    return c.body(null, 204);
+  });
 
   app.get('/:key', async (c) => {
     if (storage.name !== 'local') {
