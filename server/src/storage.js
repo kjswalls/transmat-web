@@ -18,6 +18,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
+import { Readable } from 'node:stream';
 
 /** Blob keys are opaque and must never escape the blob directory. */
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -251,7 +252,10 @@ export async function createR2Storage(config) {
         params: {
           Bucket: bucket,
           Key: objectKey(key),
-          Body: counted(body),
+          // Readable.from, not the bare async generator: the AWS SDK accepts
+          // string | Uint8Array | Buffer | Readable | ReadableStream | Blob,
+          // and an AsyncGenerator is none of those.
+          Body: Readable.from(counted(body)),
           ContentType: meta.contentType || 'application/octet-stream',
         },
         queueSize: 3,
