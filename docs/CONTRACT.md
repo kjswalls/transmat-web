@@ -19,6 +19,7 @@ Base URL `http://localhost:8787`. All routes under `/v1` require `Authorization:
 | GET | `/v1/transfers/:id/blob` | — | **302** to a signed URL (local driver signs its own `/blob/...` route) |
 | DELETE | `/v1/transfers/:id` | — | `{ok: true}` — revoke: state→`revoked`, blob deleted, SSE `transfer.revoked` |
 | POST | `/v1/deliveries/:id/ack` | — | `{ok: true}` — state→`downloaded` |
+| POST | `/v1/deliveries/:id/decline` | — | `{ok: true, state: "declined"}` |
 | GET | `/v1/events` | `?device_id` | SSE stream (below) |
 | GET | `/blob/:key` | `?exp&sig` | file bytes — **no bearer auth**, HMAC-signed, local driver only |
 
@@ -49,7 +50,7 @@ Rules:
 type Platform = 'ios' | 'android' | 'macos' | 'web' | 'cli';
 type Kind = 'file' | 'text' | 'link';
 type TransferState = 'complete' | 'revoked' | 'expired';
-type DeliveryState = 'pending' | 'pushed' | 'downloaded';
+type DeliveryState = 'pending' | 'pushed' | 'downloaded' | 'declined';
 
 interface Device {
   device_id: string;
@@ -85,6 +86,14 @@ interface Transfer {
 }
 ```
 
+### Declining
+
+`POST /v1/deliveries/:id/decline` moves one delivery to `declined`. It exists because the iOS app ships a Decline notification action, and a shipped button that does nothing is worse than no button.
+
+What it does **not** do is delete bytes. Other recipients may still want them, and one recipient's refusal is not authority over the sender's file. What changes is that the delivery stops being pending, so the sender sees a real answer instead of a notification that silently went nowhere.
+
+Idempotent, and only the call that changes the row emits `delivery.declined`. A delivery already `downloaded` returns 400 — you cannot un-receive something.
+
 ## Rate limiting
 
 Per client IP, in-process token buckets. There is one shared bearer token, so per-user limiting does not exist — IP is the only thing distinguishing callers. Over budget returns **429** with `Retry-After` and `{"error":{"code":"rate_limited"}}`.
@@ -114,6 +123,7 @@ Always `{error: {code, message}}` with a matching HTTP status. Codes: `rate_limi
 event: transfer.created   data: {"transfer": Transfer}
 event: transfer.revoked   data: {"transfer_id": "..."}
 event: delivery.acked     data: {"transfer_id": "...", "delivery_id": "...", "device_id": "..."}
+event: delivery.declined  data: {"transfer_id": "...", "delivery_id": "...", "device_id": "..."}
 ```
 
 With `?device_id=X`, only events where X is a recipient or the sender.

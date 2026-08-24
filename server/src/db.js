@@ -145,6 +145,12 @@ export function openDb(filePath) {
   const uDeliveryAcked = q(
     "UPDATE deliveries SET state = 'downloaded', acked_at = ? WHERE id = ?",
   );
+  // Declining is terminal and only ever moves forward from pending/pushed: a
+  // delivery already downloaded cannot be un-received, so the guard is in SQL
+  // rather than a read-then-write that two requests could both win.
+  const uDeliveryDecline = q(
+    "UPDATE deliveries SET state = 'declined', acked_at = ? WHERE id = ? AND state IN ('pending','pushed')",
+  );
 
   const api = {
     /** Escape hatch for migrations/maintenance only. Routes must not use it. */
@@ -360,6 +366,18 @@ export function openDb(filePath) {
       if (!row) return undefined;
       uDeliveryAcked.run(nowIso(), id);
       return sDeliveryById.get(id);
+    },
+
+    /**
+     * Decline a delivery. Returns the row and whether this call is the one
+     * that changed it, so only one of several concurrent declines announces.
+     * A delivery already downloaded is left alone — you cannot un-receive.
+     */
+    declineDelivery(id) {
+      const row = sDeliveryById.get(id);
+      if (!row) return undefined;
+      const result = uDeliveryDecline.run(nowIso(), id);
+      return { delivery: sDeliveryById.get(id), changed: result.changes > 0 };
     },
   };
 
