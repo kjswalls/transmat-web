@@ -48,6 +48,9 @@ export async function makeServer(options = {}) {
       STORAGE_DRIVER: 'local',
       PUSH_DRIVER: 'console',
       LOG_REQUESTS: 'false',
+      // Off by default: most tests hammer endpoints from one address and would
+      // trip the limiter. test/ratelimit.test.js turns it back on explicitly.
+      RATE_LIMIT: 'false',
       PUBLIC_BASE_URL: 'http://localhost:8787',
       ...options.overrides,
     },

@@ -37,6 +37,11 @@ export const UPLOAD_DEADLINE_MS = 6 * 60 * 60 * 1000; // 6 hours
  */
 export const MAX_INFLIGHT_UPLOADS = 64;
 
+// Rate limiting is on by default: this server is meant to be reachable from a
+// phone, which means reachable from the internet. Tests turn it off so they can
+// hammer endpoints without tripping it.
+export const RATE_LIMIT_DEFAULT = true;
+
 /**
  * Metadata that ends up in a response header has to fit in one, and must not
  * be able to contain one. Both of these are attacker-supplied on the presigned
@@ -242,6 +247,11 @@ export function loadConfig(options = {}) {
     version: env.TRANSMAT_VERSION ?? '0.1.0',
     defaultExpiryDays: 7,
     sweepIntervalMs: Number.parseInt(env.SWEEP_INTERVAL_MS ?? '60000', 10) || 60000,
+    // Off only for tests and deliberate load work.
+    rateLimitEnabled: (env.RATE_LIMIT ?? String(RATE_LIMIT_DEFAULT)) !== 'false',
+    // Only trust X-Forwarded-For when something in front actually sets it,
+    // or callers pick their own rate-limit bucket by spoofing the header.
+    trustProxy: env.TRUST_PROXY === 'true',
     logRequests: TRUE_ISH.has((env.LOG_REQUESTS ?? 'true').toLowerCase()),
     r2: {
       accountId: env.R2_ACCOUNT_ID ?? '',

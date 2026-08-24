@@ -12,6 +12,7 @@ import { transferRoutes } from './routes/transfers.js';
 import { deliveryRoutes } from './routes/deliveries.js';
 import { eventRoutes } from './routes/events.js';
 import { blobRoutes } from './routes/blob.js';
+import { RateLimiter, TIERS, clientKey } from './ratelimit.js';
 
 /** Constant-time bearer comparison — no early exit on the first wrong byte. */
 export function tokenMatches(expected, presented) {
@@ -52,6 +53,47 @@ export function createApp(ctx) {
       maxAge: 600,
     }),
   );
+
+  // ---- rate limiting ------------------------------------------------------
+  // Before auth, so a flood of bad tokens is cheap to refuse, and before the
+  // routes so an unauthenticated /blob PUT is covered too.
+  const limiter = ctx.rateLimiter ?? new RateLimiter();
+  ctx.rateLimiter = limiter;
+
+  if (ctx.config.rateLimitEnabled) {
+    app.use('*', async (c, next) => {
+      const path = new URL(c.req.url).pathname;
+
+      // One long-lived connection per client, and reconnect storms are exactly
+      // when we must not refuse. See ratelimit.js.
+      if (path === '/v1/events') return next();
+
+      let tier = TIERS.api;
+      if (path.startsWith('/blob/')) tier = TIERS.blob;
+      else if (path === '/health') tier = TIERS.health;
+      else if (path === '/v1/transfers' && c.req.method === 'POST') {
+        // Only the reservation branch parks a global slot; a text transfer is
+        // an ordinary write. Cheap sniff: reservations are JSON.
+        const type = (c.req.header('content-type') ?? '').toLowerCase();
+        if (type.startsWith('application/json')) tier = TIERS.reserve;
+      }
+
+      const verdict = limiter.take(clientKey(c, { trustProxy: ctx.config.trustProxy }), tier);
+      if (!verdict.ok) {
+        c.header('Retry-After', String(verdict.retryAfterSeconds));
+        return c.json(
+          {
+            error: {
+              code: 'rate_limited',
+              message: `Too many ${verdict.tier.label}. Try again in ${verdict.retryAfterSeconds}s.`,
+            },
+          },
+          429,
+        );
+      }
+      return next();
+    });
+  }
 
   if (ctx.config.logRequests) {
     app.use('*', async (c, next) => {

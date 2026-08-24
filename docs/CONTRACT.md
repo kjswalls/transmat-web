@@ -85,9 +85,26 @@ interface Transfer {
 }
 ```
 
+## Rate limiting
+
+Per client IP, in-process token buckets. There is one shared bearer token, so per-user limiting does not exist — IP is the only thing distinguishing callers. Over budget returns **429** with `Retry-After` and `{"error":{"code":"rate_limited"}}`.
+
+| Tier | Budget | Covers |
+|---|---|---|
+| reservations | 20, refilling 20/min | `POST /v1/transfers` with a JSON body — each one parks a slot out of a global 64 |
+| blob | 120, refilling 2/s | `GET`/`PUT /blob/:key` — the surfaces reachable without a bearer token |
+| api | 300, refilling 5/s | everything else under `/v1` |
+| health | 60, refilling 1/s | `GET /health` |
+
+`GET /v1/events` is **exempt**: an SSE client holds one long-lived connection, and refusing reconnects during a flaky-network storm is precisely wrong.
+
+`X-Forwarded-For` is honoured **only** when `TRUST_PROXY=true`. Without it, anyone could pick their own bucket by setting the header. Set it on Fly and behind any reverse proxy; leave it off for a direct tunnel.
+
+Buckets are in-process: they reset on restart and do not span instances. Fine for a single-box personal server; if you scale out, this needs to move to shared storage.
+
 ## Errors
 
-Always `{error: {code, message}}` with a matching HTTP status. Codes: `unauthorized` (401), `not_found` (404), `no_targets` (400), `bad_request` (400), `too_large` (413), `expired` (410), `revoked` (410), `signature_invalid` (403).
+Always `{error: {code, message}}` with a matching HTTP status. Codes: `rate_limited` (429), `unauthorized` (401), `not_found` (404), `no_targets` (400), `bad_request` (400), `too_large` (413), `expired` (410), `revoked` (410), `signature_invalid` (403).
 
 ## SSE `/v1/events`
 

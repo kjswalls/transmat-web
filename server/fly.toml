@@ -12,6 +12,9 @@ primary_region = "lhr"          # put this near you, not near us
 [env]
   PORT = "8787"
   NODE_ENV = "production"
+  # Fly terminates TLS in front of the app, so X-Forwarded-For is real here
+  # and per-IP rate limiting would otherwise bucket every caller together.
+  TRUST_PROXY = "true"
   DATA_DIR = "/data"
   STORAGE_DRIVER = "local"      # flip to "r2" once the bucket exists
   # The local driver builds every signed URL from this. Leave it unset and the
